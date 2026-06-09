@@ -16,7 +16,7 @@ const { mockOpenUrl, mockTerminalLog, MockWebLinksAddon, mockWriteText, mockClip
     appearance: { theme: "default" },
     terminal: { copyOnSelect: false },
   })),
-  terminalFlags: { createsTextarea: false },
+  terminalFlags: { createsTextarea: false, webglConstructorThrows: false },
 }));
 
 // --- Module mocks ---
@@ -88,6 +88,22 @@ vi.mock("@xterm/addon-web-links", () => ({
   WebLinksAddon: MockWebLinksAddon,
 }));
 
+vi.mock("@xterm/addon-webgl", () => ({
+  WebglAddon: class {
+    constructor() {
+      if (terminalFlags.webglConstructorThrows) {
+        throw new Error("WebGL not supported");
+      }
+    }
+
+    onContextLoss = vi.fn();
+    onAddTextureAtlasCanvas = vi.fn();
+    onRemoveTextureAtlasCanvas = vi.fn();
+    clearTextureAtlas = vi.fn();
+    dispose = vi.fn();
+  },
+}));
+
 vi.mock("@/stores/settingsStore", () => ({
   useSettingsStore: {
     getState: () => mockSettingsGetState(),
@@ -124,6 +140,10 @@ vi.mock("./terminalKeyHandler", () => ({
 import { createTerminalInstance } from "./createTerminalInstance";
 
 // --- Helpers ---
+
+beforeEach(() => {
+  terminalFlags.webglConstructorThrows = false;
+});
 
 function makeInstance() {
   const parentEl = document.createElement("div");
@@ -298,16 +318,6 @@ describe("createTerminalInstance composing property", () => {
 
 describe("createTerminalInstance with WebGL", () => {
   it("does not throw when WebGL is enabled", () => {
-    vi.mock("@xterm/addon-webgl", () => ({
-      WebglAddon: class {
-        onContextLoss = vi.fn((cb: () => void) => cb);
-        onAddTextureAtlasCanvas = vi.fn();
-        onRemoveTextureAtlasCanvas = vi.fn();
-        clearTextureAtlas = vi.fn();
-        dispose = vi.fn();
-      },
-    }));
-
     const parentEl = document.createElement("div");
     expect(() =>
       createTerminalInstance({
@@ -1192,6 +1202,7 @@ describe("createTerminalInstance — dark theme", () => {
 describe("createTerminalInstance — WebGL failure fallback", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    terminalFlags.webglConstructorThrows = true;
     mockSettingsGetState.mockReturnValue({
       appearance: { theme: "default" },
       terminal: { copyOnSelect: false },
@@ -1199,14 +1210,6 @@ describe("createTerminalInstance — WebGL failure fallback", () => {
   });
 
   it("falls back silently when WebGL addon throws on load", () => {
-    vi.mock("@xterm/addon-webgl", () => ({
-      WebglAddon: class {
-        constructor() {
-          throw new Error("WebGL not supported");
-        }
-      },
-    }));
-
     const parentEl = document.createElement("div");
     expect(() =>
       createTerminalInstance({
