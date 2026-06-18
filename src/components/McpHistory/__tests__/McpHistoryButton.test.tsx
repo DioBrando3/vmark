@@ -4,12 +4,13 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-vi.mock("@/utils/workspaceStorage", () => ({
+vi.mock("@/services/persistence/workspaceStorage", () => ({
   getCurrentWindowLabel: () => "main",
 }));
 
 vi.mock("@/stores/mcpCheckpointPersistence", () => ({
   rewriteAll: vi.fn(async () => undefined),
+  clearCheckpointsOnDisk: vi.fn(async () => undefined),
 }));
 
 const toastMock = vi.hoisted(() => ({

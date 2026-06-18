@@ -9,6 +9,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { useUIStore } from "../stores/uiStore";
 
 // --- Mocks (must precede imports) ---
 
@@ -121,7 +122,7 @@ vi.mock("../stores/workspaceStore", () => ({
 
 }));
 
-vi.mock("../utils/workspaceStorage", () => ({
+vi.mock("@/services/persistence/workspaceStorage", () => ({
   setCurrentWindowLabel: vi.fn(),
   migrateWorkspaceStorage: vi.fn(),
   getWorkspaceStorageKey: vi.fn((label: string) => `vmark-workspace:${label}`),
@@ -593,6 +594,29 @@ describe("WindowContext", () => {
       expect(mockInitDocument).not.toHaveBeenCalled();
     });
 
+    it("reveals the file explorer when opening a workspace from a URL param (#1005)", async () => {
+      // Regression: the new-window Open Workspace flow opened the workspace in
+      // the store but never showed the file tree, so a new window looked empty.
+      useUIStore.setState({ sidebarVisible: false, sidebarViewMode: "outline" });
+
+      Object.defineProperty(globalThis, "location", {
+        value: { search: "?workspaceRoot=/projects/myapp" },
+        writable: true,
+        configurable: true,
+      });
+
+      render(
+        <WindowProvider>
+          <div data-testid="child">content</div>
+        </WindowProvider>,
+      );
+
+      await waitFor(() => {
+        expect(useUIStore.getState().sidebarVisible).toBe(true);
+        expect(useUIStore.getState().sidebarViewMode).toBe("files");
+      });
+    });
+
     it("handles multiple files from files URL param", async () => {
       const { readTextFile } = await import("@tauri-apps/plugin-fs");
       vi.mocked(readTextFile).mockResolvedValue("# content");
@@ -701,7 +725,7 @@ describe("WindowContext", () => {
   describe("WindowProvider — settings window uses active workspace label", () => {
     it("sets current window label to active workspace label for settings", async () => {
       mockWindowLabel = "settings";
-      const { findActiveWorkspaceLabel, setCurrentWindowLabel } = await import("../utils/workspaceStorage");
+      const { findActiveWorkspaceLabel, setCurrentWindowLabel } = await import("@/services/persistence/workspaceStorage");
       vi.mocked(findActiveWorkspaceLabel).mockReturnValue("main");
 
       render(
@@ -1139,7 +1163,7 @@ describe("WindowContext", () => {
   describe("WindowProvider — init error handling", () => {
     it("still renders children when init throws (catch block)", async () => {
       // Make migrateWorkspaceStorage throw to trigger the init catch block
-      const { migrateWorkspaceStorage } = await import("../utils/workspaceStorage");
+      const { migrateWorkspaceStorage } = await import("@/services/persistence/workspaceStorage");
       vi.mocked(migrateWorkspaceStorage).mockImplementation(() => {
         throw new Error("migration boom");
       });
@@ -1173,7 +1197,7 @@ describe("WindowContext", () => {
 
     it("handles listen failure for tab removal gracefully", async () => {
       // Ensure migrateWorkspaceStorage does not throw (reset from prior test)
-      const { migrateWorkspaceStorage } = await import("../utils/workspaceStorage");
+      const { migrateWorkspaceStorage } = await import("@/services/persistence/workspaceStorage");
       vi.mocked(migrateWorkspaceStorage).mockImplementation(() => {});
 
       // Make listen reject ONLY for the tab:remove-by-id event
@@ -1403,7 +1427,7 @@ describe("WindowContext", () => {
 
       // Make getCurrentWebviewWindow throw on second call (after initial setup)
       // by making rehydrate throw async inside init()
-      const { migrateWorkspaceStorage } = await import("../utils/workspaceStorage");
+      const { migrateWorkspaceStorage } = await import("@/services/persistence/workspaceStorage");
       let callCount = 0;
       vi.mocked(migrateWorkspaceStorage).mockImplementation(() => {
         callCount++;

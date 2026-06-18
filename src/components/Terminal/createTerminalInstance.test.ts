@@ -122,7 +122,7 @@ vi.mock("@/stores/documentStore", () => ({
   useDocumentStore: { getState: () => ({ initDocument: mockInitDocument }) },
 }));
 
-vi.mock("@/utils/workspaceStorage", () => ({
+vi.mock("@/services/persistence/workspaceStorage", () => ({
   getCurrentWindowLabel: () => "main",
 }));
 
