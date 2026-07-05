@@ -270,8 +270,13 @@
   "lint.yamlParseError": "YAML: {{message}}",
   "lint.yamlParseWarning": "YAML: {{message}}",
   "splitPane.editorLabel": "Editor for {{format}}",
+  "split.dividerLabel": "分割サイズを変更",
   "splitPane.resize": "Resize source / preview",
   "splitPane.validationDiagnostics": "Validation diagnostics",
+  "splitPane.viewMode.label": "表示モード",
+  "splitPane.viewMode.source": "ソース",
+  "splitPane.viewMode.split": "分割",
+  "splitPane.viewMode.preview": "プレビュー",
   "diagnostic.json/syntax": "JSON: {{message}}",
   "diagnostic.json/empty": "JSON: empty document is not valid",
   "diagnostic.mermaid/missing-diagram-type": "Mermaid: missing diagram type on the first non-comment line",
@@ -317,5 +322,13 @@
   "tableMenu.alignAllRight": "すべて右揃え",
   "tableMenu.formatTable": "表を整形",
   "tableMenu.fitToWidth": "幅に合わせる",
-  "tableMenu.naturalWidth": "自然な幅"
+  "tableMenu.naturalWidth": "自然な幅",
+  "terminal.processExited": "[プロセスはコード {{code}} で終了しました]",
+  "terminal.pressAnyKeyToRestart": "任意のキーを押して再起動...",
+  "terminal.failedToStart": "シェルの起動に失敗しました: {{error}}",
+  "terminal.pressAnyKeyToRetry": "任意のキーを押して再試行...",
+  "terminal.restarting": "シェルを再起動しています...",
+  "media.cannotPreview": "この形式はプレビューできません",
+  "media.openExternally": "デフォルトアプリで開く",
+  "media.revealInFinder": "Finderで表示"
 }

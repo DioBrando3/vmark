@@ -1,15 +1,3 @@
-/**
- * File Open Utilities
- *
- * Purpose: Core file-open operations — read file into a new tab, handle
- *   open dialog with workspace/tab resolution, and create new untitled tabs.
- *
- * @coordinates-with useReplaceableTab.ts — reuses empty untitled tabs on file open
- * @coordinates-with documentStore.ts — reads/writes document content and dirty state
- * @coordinates-with useFileOperations.ts — orchestrates open handlers via menu events
- * @module hooks/useFileOpen
- */
-
 import { imeToast as toast } from "@/services/ime/imeToast";
 import i18n from "@/i18n";
 import { invoke } from "@tauri-apps/api/core";
@@ -17,7 +5,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { fileOpsError } from "@/utils/debug";
 import { perfReset, perfStart, perfEnd, perfMark } from "@/utils/perfLog";
-import { useDocumentStore } from "@/stores/documentStore";
+import { useDocumentStore, useFileLoadStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useRecentFilesStore } from "@/stores/workspaceStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
@@ -32,9 +20,14 @@ import { getFileName } from "@/utils/pathUtils";
 import { routeOpenBySize } from "@/services/navigation/largeFileRouting";
 import { maybeMarkLargeMarkdownAsSource } from "@/lib/formats/markdownLargeFile";
 import { getSupportedExtensions } from "@/lib/formats/registry";
-import { useFileLoadStore } from "@/stores/documentStore";
+import { applyFileOwnershipAfterOpen } from "@/services/workspaces/fileOwnership";
+import { tryOpenMediaFile } from "./openMediaFile";
 import { shouldShowProgressIndicator } from "@/utils/fileSizeThresholds";
 import { errorMessage } from "@/utils/errorMessage";
+// Shared replace flow (also used by "Open Recent File"); re-exported so existing
+// `from "@/hooks/useFileOpen"` import sites stay stable.
+import { replaceTabWithFile } from "./replaceTabWithFile";
+export { replaceTabWithFile, type ReplaceTabResult } from "./replaceTabWithFile";
 
 /**
  * Open a file in a new tab (core logic).
@@ -44,10 +37,21 @@ import { errorMessage } from "@/utils/errorMessage";
  */
 export async function openFileInNewTabCore(
   windowLabel: string,
-  path: string
+  path: string,
+  options?: {
+    /**
+     * Invoked synchronously with the resolved tab id as soon as the tab is
+     * created/reused, BEFORE content is read and the editor mounts — lets
+     * callers register pre-mount state (e.g. Find-in-Files pending scroll)
+     * without racing the editor consuming empty pending state.
+     */
+    onTabCreated?: (tabId: string, isExistingTab: boolean) => void;
+  }
 ): Promise<void> {
-  // Pre-read size check: refused files never create a tab; huge files
-  // confirm before going further; routeOpenBySize is a no-op for small files.
+  // Binary media: path-only open, never read as UTF-8. See openMediaFile.ts.
+  if (tryOpenMediaFile(windowLabel, path, options)) return;
+
+  // Pre-read size gate: refuse/confirm huge files; no-op for small ones.
   const route = await routeOpenBySize(path);
   if (!route.proceed) {
     perfMark("openFileInNewTab:refusedOrCancelled");
@@ -55,14 +59,16 @@ export async function openFileInNewTabCore(
   }
 
   perfStart("createTab");
-  // Detect dedup by comparing tab count before/after createTab.
-  // Ideally createTab would return { tabId, created } but changing its
-  // return type is a wider refactor — this count-based check is a safe
-  // interim guard since createTab is synchronous.
+  // Detect dedup by comparing tab count before/after createTab (createTab is
+  // synchronous and doesn't report created-vs-reused).
   const tabCountBefore = useTabStore.getState().getTabsByWindow(windowLabel).length;
   const tabId = useTabStore.getState().createTab(windowLabel, path);
   const isExistingTab = useTabStore.getState().getTabsByWindow(windowLabel).length === tabCountBefore;
   perfEnd("createTab");
+
+  // Hand the resolved tab id to the caller before the read/mount so it can
+  // register pre-mount state deterministically.
+  options?.onTabCreated?.(tabId, isExistingTab);
 
   // createTab deduped to an existing tab — just activate, don't overwrite content
   if (isExistingTab) {
@@ -102,8 +108,8 @@ export async function openFileInNewTabCore(
 
     perfStart("initDocument");
     useDocumentStore.getState().initDocument(tabId, content, path);
+    applyFileOwnershipAfterOpen(tabId, path);
     perfEnd("initDocument");
-
     perfStart("detectLinebreaks");
     const lineMeta = detectLinebreaks(content);
     useDocumentStore.getState().setLineMetadata(tabId, lineMeta);
@@ -196,6 +202,7 @@ export async function handleOpen(windowLabel: string): Promise<void> {
 
     // fix(#946) — honor the "open files in a new tab" preference
     const openInNewTab = useSettingsStore.getState().general.openInNewTab;
+    const workspaceRailMode = useSettingsStore.getState().general.workspaceRailMode;
 
     const decision = resolveOpenAction({
       filePath: path,
@@ -204,6 +211,7 @@ export async function handleOpen(windowLabel: string): Promise<void> {
       existingTabId,
       replaceableTab,
       openInNewTab,
+      workspaceRailMode,
     });
 
     perfMark("handleOpen:resolvedAction", { action: decision.action });
@@ -214,70 +222,30 @@ export async function handleOpen(windowLabel: string): Promise<void> {
         perfMark("handleOpen:activatedTab");
         break;
       case "create_tab":
+        // fix(#946) — an external file opened in a new tab carries its own
+        // resolved root; open that workspace first so it's claimed by its own
+        // context, not the current one.
+        await openWorkspaceForNewTab(windowLabel, decision.workspaceRoot);
         await openFileInNewTab(windowLabel, path);
         perfMark("handleOpen:createdTab");
         break;
       case "replace_tab": {
-        // Replace the clean untitled tab with the file content.
-        // Pre-read size gate so refused / cancelled / huge files honor the
-        // large-file UX even on this branch.
-        const route = await routeOpenBySize(path);
-        if (!route.proceed) {
-          perfMark("handleOpen:replaceTabRefusedOrCancelled");
-          break;
-        }
-
-        const showIndicator =
-          !route.forceSourceMode && shouldShowProgressIndicator(route.sizeBytes);
-        let replaceLoadId: number | null = null;
-        if (showIndicator) {
-          const filename = getFileName(path) || path;
-          replaceLoadId = useFileLoadStore
-            .getState()
-            .startLoad(filename, route.sizeBytes);
-        }
-
-        try {
-          perfStart("replace_tab:readTextFile");
-          const content = await readTextFile(path);
-          perfEnd("replace_tab:readTextFile", { size: content.length });
-
-          perfStart("replace_tab:updateTabPath");
-          useTabStore.getState().updateTabPath(decision.tabId, decision.filePath);
-          perfEnd("replace_tab:updateTabPath");
-
-          perfStart("replace_tab:detectLinebreaks");
-          const lineMeta = detectLinebreaks(content);
-          perfEnd("replace_tab:detectLinebreaks");
-
-          perfStart("replace_tab:loadContent");
-          useDocumentStore.getState().loadContent(
-            decision.tabId,
-            content,
-            decision.filePath,
-            lineMeta
-          );
-          perfEnd("replace_tab:loadContent");
-
-          perfStart("replace_tab:openWorkspaceWithConfig");
-          await openWorkspaceWithConfig(decision.workspaceRoot);
-          perfEnd("replace_tab:openWorkspaceWithConfig");
-
-          useRecentFilesStore.getState().addFile(path);
-
-          maybeMarkLargeMarkdownAsSource(
-            decision.tabId,
-            path,
-            route.forceSourceMode,
-          );
-
+        // Replace the clean untitled tab with the file content via the shared
+        // helper (also used by "Open Recent File").
+        const replaceResult = await replaceTabWithFile({
+          windowLabel,
+          tabId: decision.tabId,
+          targetPath: decision.filePath,
+          sourcePath: path,
+          workspaceRoot: decision.workspaceRoot,
+        });
+        if (replaceResult.ok) {
           perfMark("handleOpen:replacedTab");
-        } catch (error) {
-          fileOpsError("Failed to replace tab with file:", error);
-          if (replaceLoadId !== null) {
-            useFileLoadStore.getState().endLoad(replaceLoadId);
-          }
-          const msg = errorMessage(error);
+        } else if (replaceResult.cancelled) {
+          perfMark("handleOpen:replaceTabRefusedOrCancelled");
+        } else {
+          fileOpsError("Failed to replace tab with file:", replaceResult.error);
+          const msg = errorMessage(replaceResult.error);
           // Pin: system error includes paths and codes the user may want
           // to copy to investigate (permission denied, missing file, etc.)
           toast.error(i18n.t("dialog:toast.fileOpenFailed", { error: msg }), {
@@ -302,6 +270,19 @@ export async function handleOpen(windowLabel: string): Promise<void> {
         break;
     }
   });
+}
+
+/** Open an external file's resolved workspace before creating its tab (#946). */
+async function openWorkspaceForNewTab(
+  windowLabel: string,
+  workspaceRoot: string | null | undefined,
+): Promise<void> {
+  if (!workspaceRoot) return;
+  try {
+    await openWorkspaceWithConfig(workspaceRoot, { windowLabel });
+  } catch (error) {
+    fileOpsError("Failed to open workspace for new tab:", error);
+  }
 }
 
 /**

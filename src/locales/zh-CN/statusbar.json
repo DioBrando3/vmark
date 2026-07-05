@@ -1,6 +1,5 @@
 {
   "openSidebar": "打开侧边栏",
-  "newTab": "新标签页",
   "newTabTitle": "新标签页",
   "autoSavePaused": "自动保存已暂停",
   "autoSavePausedTitle": "自动保存已暂停:文件已从磁盘删除。请使用 {{shortcut}} 手动保存。",
@@ -50,6 +49,7 @@
   "pressAgainToQuit": "再次按 {{key}} 退出",
   "updateChecking": "正在检查更新...",
   "updateDownloading": "正在下载更新...",
+  "updateInstalling": "正在安装更新...",
   "updateAvailable": "有可用更新 — 点击查看",
   "updateAvailableVersion": "有可用更新:v{{version}} — 点击查看",
   "updateDownloadingPercent": "下载中:{{percent}}%",
@@ -66,6 +66,8 @@
   "terminal.maxSessions": "最多 5 个会话",
   "terminal.closeSession": "关闭",
   "terminal.restartSession": "重启",
+  "terminal.swapPosition": "交换位置",
+  "terminal.notify.attention": "{{name}} 需要处理",
   "terminal.contextMenu.copy": "复制",
   "terminal.contextMenu.copyUnwrapped": "复制（合并折行）",
   "terminal.contextMenu.paste": "粘贴",

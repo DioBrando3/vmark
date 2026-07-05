@@ -10,7 +10,30 @@ import type { ComponentType } from "react";
 export type FormatKind =
   | "wysiwyg"
   | "split-pane"
-  | "viewer";
+  | "viewer"
+  // Binary media (image/audio/video). Rendered full-width by a dedicated
+  // surface via the asset protocol — no CodeMirror source pane, never read as
+  // UTF-8 text, never editable. See dev-docs/plans/20260703-media-viewer.md.
+  | "media";
+
+/**
+ * Per-tab view mode for split-pane / viewer formats (HTML, SVG, Mermaid, …).
+ *
+ * - `source`  — CodeMirror source pane full-width (preview unmounted).
+ * - `split`   — source ▏preview side by side (the default).
+ * - `preview` — read-only render full-width (source pane unmounted).
+ *
+ * Only meaningful when the format actually declares a preview; formats without
+ * one always render source-only regardless of this value. See
+ * dev-docs/plans/20260703-split-pane-view-modes.md.
+ */
+export type SplitViewMode = "source" | "split" | "preview";
+
+/** Runtime guard — true for a valid SplitViewMode. Guards against corrupt
+ *  persisted settings producing an out-of-range mode. */
+export function isSplitViewMode(value: unknown): value is SplitViewMode {
+  return value === "source" || value === "split" || value === "preview";
+}
 
 export interface ValidationDiagnostic {
   severity: "error" | "warning" | "info";
@@ -43,7 +66,6 @@ export interface FormatAdapters {
   untitledExtension: string;
   exportEnabled?: boolean;
   findEnabled?: boolean;
-  searchAdapter: "codemirror" | "tiptap";
   contentSearchIndexed?: boolean;
   readOnlyDefault: boolean;
   reloadPolicy?: "reload" | "prompt";

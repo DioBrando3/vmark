@@ -106,7 +106,10 @@ export function registerFormat(config: FormatConfig): void {
       `[formats] "${config.id}" kind=wysiwyg must not declare loadLanguage (CodeMirror is not mounted in WYSIWYG)`,
     );
   }
+  // kind:"media" is never editable (no editingEnabled toggle, no text), so the
+  // "read-only can still be toggled dirty" rationale below does not apply.
   if (
+    config.kind !== "media" &&
     config.adapters.readOnlyDefault === true &&
     config.adapters.closeSavePolicy !== "markdown-default"
   ) {
@@ -231,13 +234,14 @@ export function __resetRegistry(): void {
  * spurious `gitignore` "extension".
  */
 export function formatLookupKeys(filePath: string): string[] {
-  // Strip query/fragment BEFORE finding the basename — a slash inside a
-  // query value (e.g. `?next=/tmp/a`) would otherwise be picked up by
-  // lastIndexOf("/") and the "basename" would be the slice after that
-  // intra-query slash. (Audit Round B H1.)
-  const stripped = filePath.replace(/[?#].*$/, "");
+  // URLs carry a real query/fragment whose slashes corrupt the basename split
+  // (`?next=/tmp/a`), so strip it first (Audit Round B H1). Local paths keep
+  // `?`/`#` literal; a trailing `?…`/`#…` on the basename is a marker only when
+  // nothing after it has a dot — `?reload=1`/`#anchor` strip, `photo#1.png` keeps `.png`.
+  const isUrl = /^[a-z][a-z0-9+.-]*:\/\//i.test(filePath);
+  const stripped = isUrl ? filePath.replace(/[?#].*$/, "") : filePath;
   const slash = Math.max(stripped.lastIndexOf("/"), stripped.lastIndexOf("\\"));
-  const base = slash >= 0 ? stripped.slice(slash + 1) : stripped;
+  const base = (slash >= 0 ? stripped.slice(slash + 1) : stripped).replace(/[?#][^.]*$/, "");
   const lower = base.toLowerCase();
   if (!lower) return [];
 

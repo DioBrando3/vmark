@@ -160,7 +160,9 @@ menu:
 
   # === 檢視選單 ===
   view: "檢視"
+  view.wysiwygMode: "所見即所得模式"
   view.sourceMode: "原始碼模式"
+  view.markdownSplit: "Markdown 分割檢視"
   view.focusMode: "專注模式"
   view.typewriterMode: "打字機模式"
   view.actualSize: "實際大小"
@@ -175,6 +177,7 @@ menu:
   view.outline: "切換大綱"
   view.fileExplorer: "切換檔案總管"
   view.history: "切換歷史紀錄"
+  view.knowledgeBase: "切換知識庫"
   view.terminal: "切換終端機"
   view.checkMarkdown: "檢查 Markdown"
   view.lintNext: "下一個問題"
@@ -182,6 +185,7 @@ menu:
   # === 視窗選單 ===
   window: "視窗"
   window.bringAllToFront: "將全部移至最前"
+  window.status: "視窗狀態"
 
   # === 輔助說明選單 ===
   help: "輔助說明"
@@ -260,6 +264,9 @@ errors:
   # === MCP ===
   mcp.spawnInProgress: "MCP 側載程序正在啟動中"
   mcp.configMismatch: "設定校驗失敗：寫入內容與預期不符"
+
+window:
+  settings.title: "設定"
 
 cli:
   dialogTitle: "Shell 指令"

@@ -167,12 +167,14 @@
     "italic",
     "join-lines",
     "keyboard-shortcuts",
+    "knowledge-base",
     "line-endings-crlf",
     "line-endings-lf",
     "line-numbers",
     "link",
     "lint-next",
     "lint-prev",
+    "markdown-split",
     "math-block",
     "mindmap",
     "move-line-down",
@@ -229,10 +231,12 @@
     "view-history",
     "vmark-help",
     "wiki-link",
+    "window-status",
     "word-wrap",
+    "wysiwyg-mode",
     "zoom-actual",
     "zoom-in",
     "zoom-out"
   ],
-  "generatedAt": "2026-06-12T05:16:49.819Z"
+  "generatedAt": "2026-06-29T11:51:33.012Z"
 }

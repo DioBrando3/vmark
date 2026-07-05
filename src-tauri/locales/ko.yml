@@ -160,7 +160,9 @@ menu:
 
   # === 보기 메뉴 ===
   view: "보기"
+  view.wysiwygMode: "WYSIWYG 모드"
   view.sourceMode: "소스 코드 모드"
+  view.markdownSplit: "마크다운 분할 보기"
   view.focusMode: "집중 모드"
   view.typewriterMode: "타자기 모드"
   view.actualSize: "실제 크기"
@@ -175,6 +177,7 @@ menu:
   view.outline: "개요 전환"
   view.fileExplorer: "파일 탐색기 전환"
   view.history: "기록 전환"
+  view.knowledgeBase: "지식 베이스 전환"
   view.terminal: "터미널 전환"
   view.checkMarkdown: "Markdown 검사"
   view.lintNext: "다음 문제"
@@ -182,6 +185,7 @@ menu:
   # === 창 메뉴 ===
   window: "창"
   window.bringAllToFront: "모든 창 앞으로 가져오기"
+  window.status: "창 상태"
 
   # === 도움말 메뉴 ===
   help: "도움말"
@@ -260,6 +264,9 @@ errors:
   # === MCP ===
   mcp.spawnInProgress: "MCP 사이드카 실행이 이미 진행 중입니다"
   mcp.configMismatch: "구성 검증 실패: 쓴 내용이 예상과 일치하지 않습니다"
+
+window:
+  settings.title: "설정"
 
 cli:
   dialogTitle: "셸 명령"

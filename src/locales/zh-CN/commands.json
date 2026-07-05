@@ -37,11 +37,18 @@
   },
   "view": {
     "toggleSourceMode": "切换源码模式",
+    "toggleSplitDocuments": "拆分编辑器：并排显示两个文档",
+    "toggleSyncScroll": "同步分栏滚动",
+    "closePane": "关闭分栏",
+    "focusOtherPane": "聚焦另一个分栏",
+    "setWysiwygMode": "切换到所见即所得模式",
     "toggleFocusMode": "切换聚焦模式",
     "toggleTypewriterMode": "切换打字机模式",
     "toggleOutline": "切换大纲",
     "toggleFileExplorer": "切换文件浏览器",
     "toggleHistory": "切换历史记录",
+    "toggleKnowledgeBase": "切换知识库",
+    "toggleMarkdownSplit": "切换 Markdown 分屏视图",
     "toggleWordWrap": "切换自动换行",
     "toggleLineNumbers": "切换行号",
     "toggleDiagramPreview": "切换图表预览",
@@ -51,7 +58,8 @@
     "zoomActual": "实际大小",
     "zoomIn": "放大",
     "zoomOut": "缩小",
-    "toggleShowInvisibles": "切换不可见字符"
+    "toggleShowInvisibles": "切换不可见字符",
+    "toggleWindowStatus": "窗口状态"
   },
   "lint": {
     "check": "检查 Markdown",

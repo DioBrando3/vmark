@@ -33,6 +33,18 @@ describe('Schema Migration', () => {
     it('should return false for version 0 (invalid)', () => {
       expect(canMigrate(0)).toBe(false);
     });
+
+    it('should return false for fractional versions (no migration step exists)', () => {
+      // A fractional version like 4.5 sits between two real schema versions.
+      // canMigrate must reject it rather than report it migratable — otherwise
+      // migrateSession enters its step loop and fails on a missing migration fn.
+      expect(canMigrate(4.5)).toBe(false);
+      expect(canMigrate(1.1)).toBe(false);
+    });
+
+    it('should return false for NaN version', () => {
+      expect(canMigrate(NaN)).toBe(false);
+    });
   });
 
   describe('migrateSession', () => {
@@ -314,7 +326,7 @@ describe('Schema Migration', () => {
       expect(doc.redo_history).toEqual([]);
     });
 
-    it('passes through a v3 session unchanged', () => {
+    it('migrates a v3 session to v4 while preserving format fields', () => {
       const v3Session: SessionData = {
         version: 3,
         timestamp: 1747958400,
@@ -367,10 +379,18 @@ describe('Schema Migration', () => {
       };
 
       const migrated = migrateSession(v3Session);
-      expect(migrated).toEqual(v3Session);
+      expect(migrated.version).toBe(SCHEMA_VERSION);
+      expect(migrated.windows[0].tabs[0].format_id).toBe('json');
+      expect(migrated.windows[0].tabs[0].editing_enabled).toBe(false);
+      expect(migrated.windows[0].tabs[0].active_schema_id).toBe('package-json');
+      expect(migrated.windows[0].workspace_instance_ids).toEqual(['wsi-legacy-main-loose']);
+      expect(migrated.windows[0].workspace_instances?.[0]).toMatchObject({
+        kind: 'loose',
+        tabIds: ['tab-y'],
+      });
     });
 
-    it('migrates an entire v1 session through to v3 with format defaults', () => {
+    it('migrates an entire v1 session through to current with format defaults', () => {
       const v1Session = {
         version: 1,
         timestamp: 1700000000,
@@ -493,9 +513,9 @@ describe('Schema Migration', () => {
       expect(tab.active_schema_id).toBe('package-json');
     });
 
-    it('rejects v4 (a future schema) with a typed error', () => {
+    it('rejects a future schema with a typed error', () => {
       const futureSession = {
-        version: 4,
+        version: SCHEMA_VERSION + 1,
         timestamp: 1747958400,
         vmark_version: '99.0.0',
         windows: [],

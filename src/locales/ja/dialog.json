@@ -33,7 +33,8 @@
     "buttonKeep": "変更を保持",
     "buttonReloadAll": "すべて再読み込み",
     "buttonKeepAll": "すべて保持",
-    "buttonReviewEach": "個別に確認"
+    "buttonReviewEach": "個別に確認",
+    "unknownFile": "ファイル"
   },
   "revertToSaved": {
     "title": "保存済みに戻す",
@@ -77,6 +78,7 @@
   },
   "chooseFolderForDocs": "{{count}}個の新しいドキュメントのフォルダを選択",
   "toast": {
+    "mcpApprovalRequired": "AI による新しい場所への保存リクエストをブロックしました: {{filename}}。許可するには、設定 → 連携で「編集を自動承認」を有効にしてください。",
     "saveDialogFailed": "保存ダイアログが失敗しました: {{error}}",
     "failedToMoveToNewWindow": "ファイルを新しいウィンドウに移動できませんでした",
     "failedToSaveDocuments": "ドキュメントの保存に失敗しました",
@@ -87,6 +89,11 @@
     "quarantineCleared_other": "このワークスペース内の {{count}} 個の Markdown ファイルから macOS の隔離属性を削除しました。",
     "quarantineClearedDesc": "macOS では、一部のアプリでダウンロードしたファイルにフラグが付けられ、VMark の実行中に Finder のダブルクリックが密かにブロックされます。VMark がそのフラグを削除したため、これらのファイルが開けるようになりました。設定 → 詳細で無効にできます。",
     "failedToOpenFilesInNewWindow": "新しいウィンドウでファイルを開けませんでした",
+    "workspaceMoveFailed": "Failed to move workspace to a new window",
+    "workspaceDuplicateFailed": "Failed to duplicate workspace",
+    "workspaceDuplicateSkipped_one": "Duplicated workspace and skipped 1 dirty, untitled, or missing tab.",
+    "workspaceDuplicateSkipped_other": "Duplicated workspace and skipped {{count}} dirty, untitled, or missing tabs.",
+    "sameFileDirtyConflict": "Cannot save \"{{file}}\" because another workspace window has unsaved changes for the same file ({{workspace}}).",
     "onlyMarkdownViaDropDrop": "ドラッグ＆ドロップで開けるのはMarkdownファイルのみです",
     "restored": "復元しました: {{filename}}",
     "reloaded": "再読み込みしました: {{filename}}",
@@ -100,6 +107,8 @@
     "exportHtmlSuccess": "フォルダにエクスポートしました",
     "exportHtmlResourceWarning_one": "1個のリソースを含められませんでした",
     "exportHtmlResourceWarning_other": "{{count}}個のリソースを含められませんでした",
+    "exportImageWarning_one": "1個の画像を埋め込めなかったため、出力から欠落しています",
+    "exportImageWarning_other": "{{count}}個の画像を埋め込めなかったため、出力から欠落しています",
     "printRequiresMac": "印刷にはmacOSが必要です。",
     "nativePdfRequiresMac": "ネイティブPDFエクスポートにはmacOSが必要です。代わりに印刷を使用してください。",
     "failedToPreparePdf": "PDFエクスポートの準備に失敗しました",
@@ -196,12 +205,6 @@
   "saveRequired": {
     "title": "保存が必要"
   },
-  "closeLastTab": {
-    "title": "最後のドキュメントを閉じる",
-    "message": "このワークスペースで最後に開いているドキュメントです。閉じますか？",
-    "confirm": "閉じる",
-    "cancel": "キャンセル"
-  },
   "fileTooLarge": {
     "title": "ファイルが大きすぎます",
     "message": "ファイルが大きすぎます（{{size}} MB）。最大は {{max}} MB です。"
@@ -217,7 +220,13 @@
   "errorBoundary": {
     "title": "問題が発生しました",
     "featureFailedTitle": "{{feature}} の表示に失敗しました",
-    "tryAgain": "再試行"
+    "tryAgain": "再試行",
+    "feature": {
+      "editor": "エディター",
+      "terminal": "ターミナル",
+      "settings": "設定",
+      "pdfExport": "PDF エクスポート"
+    }
   },
   "pdfExport": {
     "title": "PDF をエクスポート",
@@ -235,5 +244,8 @@
     "pin": "ピン留め",
     "pinTooltip": "この通知を開いたままにする",
     "unpinTooltip": "ピン留め中 — 手動で閉じる"
+  },
+  "openWorkspaceFolder": {
+    "title": "ワークスペースフォルダーを開く"
   }
 }

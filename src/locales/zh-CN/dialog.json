@@ -33,7 +33,8 @@
     "buttonKeep": "保留我的更改",
     "buttonReloadAll": "全部重新加载",
     "buttonKeepAll": "全部保留",
-    "buttonReviewEach": "逐个审阅"
+    "buttonReviewEach": "逐个审阅",
+    "unknownFile": "文件"
   },
   "revertToSaved": {
     "title": "恢复到已保存版本",
@@ -77,6 +78,7 @@
   },
   "chooseFolderForDocs": "为 {{count}} 个新文档选择文件夹",
   "toast": {
+    "mcpApprovalRequired": "已阻止 AI 请求保存到新位置：{{filename}}。如需允许，请在“设置 → 集成”中启用“自动批准编辑”。",
     "saveDialogFailed": "保存对话框失败：{{error}}",
     "failedToMoveToNewWindow": "无法将文件移动到新窗口",
     "failedToSaveDocuments": "无法保存文档",
@@ -87,6 +89,11 @@
     "quarantineCleared_other": "已清除此工作区中 {{count}} 个 Markdown 文件的 macOS 隔离标记。",
     "quarantineClearedDesc": "macOS 会给某些应用下载的文件加上一个标记，导致 VMark 运行时在 Finder 双击打开会被静默拦截。VMark 已为你清除该标记，使这些文件可以正常打开。可在设置 → 高级中关闭。",
     "failedToOpenFilesInNewWindow": "无法在新窗口中打开文件",
+    "workspaceMoveFailed": "Failed to move workspace to a new window",
+    "workspaceDuplicateFailed": "Failed to duplicate workspace",
+    "workspaceDuplicateSkipped_one": "Duplicated workspace and skipped 1 dirty, untitled, or missing tab.",
+    "workspaceDuplicateSkipped_other": "Duplicated workspace and skipped {{count}} dirty, untitled, or missing tabs.",
+    "sameFileDirtyConflict": "Cannot save \"{{file}}\" because another workspace window has unsaved changes for the same file ({{workspace}}).",
     "onlyMarkdownViaDropDrop": "只能通过拖放打开 Markdown 文件",
     "restored": "已恢复：{{filename}}",
     "reloaded": "已重新加载：{{filename}}",
@@ -100,6 +107,8 @@
     "exportHtmlSuccess": "已导出到文件夹",
     "exportHtmlResourceWarning_one": "1 个资源无法包含",
     "exportHtmlResourceWarning_other": "{{count}} 个资源无法包含",
+    "exportImageWarning_one": "1 张图片无法嵌入，输出中将缺失",
+    "exportImageWarning_other": "{{count}} 张图片无法嵌入，输出中将缺失",
     "printRequiresMac": "打印需要 macOS。",
     "nativePdfRequiresMac": "原生 PDF 导出需要 macOS。请改用打印。",
     "failedToPreparePdf": "无法准备 PDF 导出",
@@ -196,12 +205,6 @@
   "saveRequired": {
     "title": "需要保存"
   },
-  "closeLastTab": {
-    "title": "关闭最后一个文档",
-    "message": "这是此工作区中最后一个打开的文档。要关闭吗？",
-    "confirm": "关闭",
-    "cancel": "取消"
-  },
   "fileTooLarge": {
     "title": "文件过大",
     "message": "文件过大（{{size}} MB）。最大为 {{max}} MB。"
@@ -217,7 +220,13 @@
   "errorBoundary": {
     "title": "出错了",
     "featureFailedTitle": "{{feature}} 渲染失败",
-    "tryAgain": "重试"
+    "tryAgain": "重试",
+    "feature": {
+      "editor": "编辑器",
+      "terminal": "终端",
+      "settings": "设置",
+      "pdfExport": "PDF 导出"
+    }
   },
   "pdfExport": {
     "title": "导出 PDF",
@@ -235,5 +244,8 @@
     "pin": "钉住",
     "pinTooltip": "保持此通知打开",
     "unpinTooltip": "已钉住 — 手动关闭"
+  },
+  "openWorkspaceFolder": {
+    "title": "打开工作区文件夹"
   }
 }

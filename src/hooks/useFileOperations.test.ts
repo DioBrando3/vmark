@@ -72,6 +72,7 @@ vi.mock("@/stores/documentStore", () => ({
 
 vi.mock("@/utils/paths", () => ({
   isWithinRoot: vi.fn(),
+  normalizePath: vi.fn((path: string) => path),
   getParentDir: vi.fn((path: string) => {
     const lastSlash = path.lastIndexOf("/");
     return lastSlash > 0 ? path.substring(0, lastSlash) : "";
@@ -91,6 +92,10 @@ vi.mock("@/utils/linebreakDetection", () => ({
 
 vi.mock("@/hooks/useReplaceableTab", () => ({
   findExistingTabForPath: vi.fn(() => null),
+}));
+
+vi.mock("@/services/workspaces/fileOwnership", () => ({
+  applyFileOwnershipAfterOpen: vi.fn(),
 }));
 
 vi.mock("@/contexts/WindowContext", () => ({
@@ -291,9 +296,11 @@ describe("openFileInNewTabCore", () => {
   });
 
   it("does not add to recent files when readTextFile throws", async () => {
-    mockReadTextFile.mockRejectedValue(new Error("Binary file"));
+    // Use a text file — a media path (.png) now bypasses readTextFile entirely
+    // (path-only media open), so it can't exercise the read-failure branch.
+    mockReadTextFile.mockRejectedValue(new Error("read failed"));
 
-    await openFileInNewTabCore("main", "/path/to/binary.png");
+    await openFileInNewTabCore("main", "/path/to/broken.md");
 
     expect(mockAddFile).not.toHaveBeenCalled();
   });

@@ -1,6 +1,5 @@
 {
   "openSidebar": "開啟側邊欄",
-  "newTab": "新增標籤頁",
   "newTabTitle": "新標籤頁",
   "autoSavePaused": "自動儲存已暫停",
   "autoSavePausedTitle": "自動儲存已暫停：檔案已從磁碟刪除。請使用 {{shortcut}} 手動儲存。",
@@ -50,6 +49,7 @@
   "pressAgainToQuit": "再按一次 {{key}} 以結束",
   "updateChecking": "檢查更新中...",
   "updateDownloading": "下載更新中...",
+  "updateInstalling": "正在安裝更新...",
   "updateAvailable": "有可用更新 — 點擊查看",
   "updateAvailableVersion": "有可用更新：v{{version}} — 點擊查看",
   "updateDownloadingPercent": "下載中：{{percent}}%",
@@ -66,6 +66,8 @@
   "terminal.maxSessions": "最多 5 個工作階段",
   "terminal.closeSession": "關閉",
   "terminal.restartSession": "重新啟動",
+  "terminal.swapPosition": "交換位置",
+  "terminal.notify.attention": "{{name}} 需要處理",
   "terminal.contextMenu.copy": "複製",
   "terminal.contextMenu.copyUnwrapped": "複製（合併折行）",
   "terminal.contextMenu.paste": "貼上",

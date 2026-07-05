@@ -27,8 +27,9 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useShortcutsStore } from "@/stores/settingsStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useWindowLabel } from "@/contexts/WindowContext";
+import { useSourcePaneFocus } from "@/hooks/useSourcePaneFocus";
 import {
-  useDocumentContent,
+  useActiveTabId, useDocumentContent,
   useDocumentCursorInfo,
   useDocumentActions,
 } from "@/hooks/useDocumentState";
@@ -52,8 +53,7 @@ import {
   shortcutKeymapCompartment,
   readOnlyCompartment,
 } from "@/services/assembly/sourceEditorExtensions";
-import { consumePendingLintScroll } from "@/hooks/lintNavigation";
-import { consumePendingContentSearchNav, openFindBarWithQuery } from "@/hooks/contentSearchNavigation";
+import { consumeSourcePendingNav } from "./sourcePendingNav";
 
 interface SourceEditorProps {
   hidden?: boolean;
@@ -66,24 +66,27 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
   const viewRef = useRef<EditorView | null>(null);
   const isInternalChange = useRef(false);
   const hiddenRef = useRef(hidden);
-  hiddenRef.current = hidden;
 
   useSourceOutlineSync(viewRef, hidden);
 
   // Use document store for content (per-window state)
   const content = useDocumentContent();
   const cursorInfo = useDocumentCursorInfo();
-  const { setContent, setCursorInfo, setSelectedText } = useDocumentActions();
+  const { setContent, setCursorInfo, setSelectedText } = useDocumentActions(useActiveTabId() ?? undefined);
 
   // Refs to capture callbacks for use in CodeMirror listener
   const setContentRef = useRef(setContent);
   const setCursorInfoRef = useRef(setCursorInfo);
   const setSelectedTextRef = useRef(setSelectedText);
   const cursorInfoRef = useRef(cursorInfo);
+  // Latest-value refs synced during render: read by CodeMirror's update listener, a delayed focus/restore setTimeout, and an interval poll — all of which can fire before a passive effect would flush, so they need pre-commit freshness (#1063).
+  /* eslint-disable react-hooks/refs */
+  hiddenRef.current = hidden;
   setContentRef.current = setContent;
   setCursorInfoRef.current = setCursorInfo;
   setSelectedTextRef.current = setSelectedText;
   cursorInfoRef.current = cursorInfo;
+  /* eslint-enable react-hooks/refs */
 
   // Use editor store for global settings
   const wordWrap = useUIStore((state) => state.wordWrap);
@@ -94,6 +97,7 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
 
   // Window label for tab ID resolution (stable per window)
   const windowLabel = useWindowLabel();
+  const isFocusedPaneRef = useSourcePaneFocus(viewRef, windowLabel, hidden); // #1081
 
   // Handle image drag-drop from Finder/Explorer
   useImageDragDrop({
@@ -102,10 +106,8 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
     enabled: !hidden,
   });
 
-  // Reset parent scroll when source editor mounts or becomes visible.
-  // .editor-content retains its scrollTop from WYSIWYG mode even after
-  // overflow switches to hidden, causing the source editor to appear
-  // displaced (content at bottom instead of top).
+  // Reset parent scroll on mount/show: .editor-content keeps its WYSIWYG scrollTop
+  // after overflow flips to hidden, displacing the source editor's content.
   useEffect(() => {
     const editorContent = containerRef.current?.closest(".editor-content") as HTMLElement | null;
     if (editorContent && !hidden) {
@@ -113,9 +115,8 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
     }
   }, [hidden]);
 
-  // Clear shared selectedText when this editor becomes hidden — keeps the
-  // status bar from showing this editor's last selection while the other
-  // editor (WYSIWYG mode) is active.
+  // Clear shared selectedText when hidden — keeps the status bar from showing this
+  // editor's last selection while the WYSIWYG editor is active.
   useEffect(() => {
     if (hidden) setSelectedTextRef.current("");
   }, [hidden]);
@@ -218,10 +219,8 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
 
     viewRef.current = view;
 
-    // Only register and focus when not hidden
-    if (!hiddenRef.current) {
-      useEditorStore.getState().setActiveSourceView(view, mountTabId);
-    }
+    // Register only when visible + focused pane (#1081).
+    if (!hiddenRef.current && isFocusedPaneRef.current) useEditorStore.getState().setActiveSourceView(view, mountTabId);
 
     const updateShortcutKeymap = () => {
       runOrQueueCodeMirrorAction(view, () => {
@@ -255,32 +254,8 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
             scrollIntoView: true,
           });
         }
-        // Consume pending lint scroll (set when switching to Source mode for a sourceOnly diagnostic)
-        if (mountTabId) {
-          const pendingOffset = consumePendingLintScroll(mountTabId);
-          if (pendingOffset !== undefined) {
-            view.dispatch({
-              effects: EditorView.scrollIntoView(
-                Math.min(pendingOffset, view.state.doc.length)
-              ),
-            });
-          }
-          // Consume pending content search nav (set when opening a file from Find in Files)
-          const pendingNav = consumePendingContentSearchNav(mountTabId);
-          if (pendingNav) {
-            const line = Math.min(pendingNav.line, view.state.doc.lines);
-            const lineInfo = view.state.doc.line(line);
-            view.dispatch({
-              selection: { anchor: lineInfo.from },
-              effects: EditorView.scrollIntoView(lineInfo.from),
-            });
-            // Pre-fill FindBar with the search query (only when there is one —
-            // a file-link line jump passes an empty query and just scrolls).
-            if (pendingNav.query) {
-              setTimeout(() => openFindBarWithQuery(pendingNav.query), 100);
-            }
-          }
-        }
+        // Consume pending lint-scroll / content-search navigation for this tab
+        consumeSourcePendingNav(view, mountTabId);
       }, 50);
     }
 
@@ -316,10 +291,10 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
       });
     }
 
-    // Register as active source view, bound to the currently visible tab
+    // Register as active source view (focused pane only, #1081).
     const { activeTabId: tabIds } = useTabStore.getState();
     const visibleTabId = tabIds[windowLabel] ?? undefined;
-    useEditorStore.getState().setActiveSourceView(view, visibleTabId);
+    if (isFocusedPaneRef.current) useEditorStore.getState().setActiveSourceView(view, visibleTabId);
 
     // Focus and restore cursor
     setTimeout(() => {
@@ -328,31 +303,8 @@ export function SourceEditor({ hidden = false, readOnly = false }: SourceEditorP
       if (cursorInfoRef.current) {
         restoreCursorInCodeMirror(view, cursorInfoRef.current);
       }
-      // Consume pending lint scroll (set when switching to Source mode for a sourceOnly diagnostic)
-      if (visibleTabId) {
-        const pendingOffset = consumePendingLintScroll(visibleTabId);
-        if (pendingOffset !== undefined) {
-          view.dispatch({
-            effects: EditorView.scrollIntoView(
-              Math.min(pendingOffset, view.state.doc.length)
-            ),
-          });
-        }
-        // Consume pending content search nav (set when opening a file from Find in Files)
-        const pendingNav = consumePendingContentSearchNav(visibleTabId);
-        if (pendingNav) {
-          const line = Math.min(pendingNav.line, view.state.doc.lines);
-          const lineInfo = view.state.doc.line(line);
-          view.dispatch({
-            selection: { anchor: lineInfo.from },
-            effects: EditorView.scrollIntoView(lineInfo.from),
-          });
-          // Only open FindBar when there's a query (file-link nav scrolls only).
-          if (pendingNav.query) {
-            setTimeout(() => openFindBarWithQuery(pendingNav.query), 100);
-          }
-        }
-      }
+      // Consume pending lint-scroll / content-search navigation for this tab
+      consumeSourcePendingNav(view, visibleTabId);
     }, 50);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hidden]);

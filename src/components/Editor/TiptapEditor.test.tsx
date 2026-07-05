@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   parseMarkdown: vi.fn(() => ({ type: "doc", content: [] })),
   serializeMarkdown: vi.fn(() => "# hello"),
   registerActiveWysiwygFlusher: vi.fn(),
+  registerWysiwygFlusher: vi.fn(),
   getCursorInfoFromTiptap: vi.fn(() => ({ line: 1, col: 0 })),
   restoreCursorInTiptap: vi.fn(),
   getTiptapEditorView: vi.fn(() => null),
@@ -38,6 +39,7 @@ const mocks = vi.hoisted(() => ({
     setSelectedText: mocks.setSelectedText,
   })),
   useWindowLabel: vi.fn(() => "main"),
+  consumeWysiwygPendingNav: vi.fn(() => false),
   // Mock editor returned by useEditor
   mockEditor: null as ReturnType<typeof createMockEditor> | null,
   useEditor: vi.fn(),
@@ -75,9 +77,10 @@ vi.mock("@tiptap/react", () => ({
 }));
 
 vi.mock("@/hooks/useDocumentState", () => ({
+  useActiveTabId: () => "tab-1",
   useDocumentContent: () => mocks.useDocumentContent(),
   useDocumentCursorInfo: () => mocks.useDocumentCursorInfo(),
-  useDocumentActions: () => mocks.useDocumentActions(),
+  useDocumentActions: (ownTabId?: string) => mocks.useDocumentActions(ownTabId),
 }));
 
 vi.mock("@/hooks/useImageContextMenu", () => ({
@@ -99,6 +102,7 @@ vi.mock("@/utils/markdownPipeline", () => ({
 
 vi.mock("@/utils/wysiwygFlush", () => ({
   registerActiveWysiwygFlusher: mocks.registerActiveWysiwygFlusher,
+  registerWysiwygFlusher: mocks.registerWysiwygFlusher,
 }));
 
 vi.mock("@/utils/cursorSync/tiptap", () => ({
@@ -163,16 +167,24 @@ vi.mock("@/stores/uiStore", () => {
   return { useUIStore: store };
 });
 
-vi.mock("@/stores/settingsStore", () => {
-  const state = {
-    markdown: { preserveLineBreaks: false, hardBreakStyleOnSave: "backslash", lintEnabled: true },
+const { settingsState } = vi.hoisted(() => ({
+  settingsState: {
+    markdown: {
+      preserveLineBreaks: false,
+      hardBreakStyleOnSave: "backslash",
+      lintEnabled: true,
+      showInvisibles: false,
+      codeBlockLineNumbers: false,
+    },
     appearance: { cjkLetterSpacing: "0" },
+  },
+}));
+vi.mock("@/stores/settingsStore", () => {
+  const store = ((selector: (s: typeof settingsState) => unknown) => selector(settingsState)) as unknown as {
+    (selector: (s: typeof settingsState) => unknown): unknown;
+    getState: () => typeof settingsState;
   };
-  const store = ((selector: (s: typeof state) => unknown) => selector(state)) as unknown as {
-    (selector: (s: typeof state) => unknown): unknown;
-    getState: () => typeof state;
-  };
-  store.getState = () => state;
+  store.getState = () => settingsState;
   return { useSettingsStore: store };
 });
 
@@ -198,6 +210,10 @@ vi.mock("@/stores/documentStore", () => ({
   useUnifiedHistoryStore: { getState: () => ({ documents: {}, createCheckpoint: vi.fn() }), subscribe: () => () => {} },
   useLintStore: { getState: () => ({ diagnosticsByTab: {}, selectedIndexByTab: {}, clearDiagnostics: vi.fn() }), subscribe: () => () => {} },
   useFileLoadStore: { getState: () => ({ active: false }) },
+}));
+
+vi.mock("./wysiwygPendingNav", () => ({
+  consumeWysiwygPendingNav: (...args: unknown[]) => mocks.consumeWysiwygPendingNav(...args),
 }));
 
 vi.mock("./ImageContextMenu", () => ({
@@ -243,23 +259,26 @@ describe("TiptapEditorInner", () => {
     expect(container.querySelector(".tiptap-editor")).toBeInTheDocument();
   });
 
-  it("adds show-line-numbers class when showLineNumbers is true", () => {
-    // Override editorStore mock for this test
-    vi.doMock("@/stores/uiStore", () => {
-      const state = { showLineNumbers: true };
-      const store = ((sel: (s: typeof state) => unknown) => sel(state)) as unknown as {
-        (sel: (s: typeof state) => unknown): unknown;
-        getState: () => typeof state;
-      };
-      store.getState = () => state;
-      return { useUIStore: store };
-    });
-    // Re-render with the module-level mock already in place;
-    // the component reads from the store selector, which we've mocked above.
-    // Since vi.doMock doesn't affect already-imported modules, we test
-    // using the default mock state (showLineNumbers: false).
+  it("adds show-line-numbers class when markdown.codeBlockLineNumbers is on", () => {
+    // WYSIWYG code-block line numbers are driven by the Markdown setting, NOT
+    // the View-menu source-gutter toggle (uiStore.showLineNumbers). See #1082.
+    settingsState.markdown.codeBlockLineNumbers = true;
+    try {
+      const { container } = render(<TiptapEditorInner />);
+      expect(container.querySelector(".tiptap-editor.show-line-numbers")).toBeInTheDocument();
+    } finally {
+      settingsState.markdown.codeBlockLineNumbers = false;
+    }
+  });
+
+  it("omits show-line-numbers when the code-block setting is off", () => {
+    // Default off — and TiptapEditor no longer reads the source-gutter toggle
+    // at all, so the gutter "Line Numbers" item can never add this class.
+    settingsState.markdown.codeBlockLineNumbers = false;
     const { container } = render(<TiptapEditorInner />);
-    expect(container.querySelector(".tiptap-editor")).toBeInTheDocument();
+    const editor = container.querySelector(".tiptap-editor");
+    expect(editor).toBeInTheDocument();
+    expect(editor?.classList.contains("show-line-numbers")).toBe(false);
   });
 
   it("hides editor content when hidden=true", () => {
@@ -322,6 +341,14 @@ describe("TiptapEditorInner", () => {
     vi.clearAllMocks();
     unmount();
     expect(mocks.registerActiveWysiwygFlusher).toHaveBeenCalledWith(null);
+  });
+
+  // Regression: cross-tab content bleed. The editor is keyed per tab, so its
+  // store writes must be pinned to its own tab — a debounced/unmount flush
+  // firing after a tab switch must not write into the newly focused tab.
+  it("pins document actions to its own tab id", () => {
+    render(<TiptapEditorInner />);
+    expect(mocks.useDocumentActions).toHaveBeenCalledWith("tab-1");
   });
 
   // ── Editor null path ─────────────────────────────────────────────
@@ -2049,5 +2076,116 @@ describe("TiptapEditorInner — external sync skips when hidden (line 386)", () 
 
     // parseMarkdown should NOT be called for sync — hidden guard at line 385-386
     expect(mocks.parseMarkdown).not.toHaveBeenCalled();
+  });
+});
+
+// ── Audit F5 — unmount flush failures must be logged, not swallowed ──
+
+describe("TiptapEditorInner — unmount flush failure logging (audit F5)", () => {
+  it("logs via tiptapError when the final flush throws instead of silently losing edits", () => {
+    vi.clearAllMocks();
+    const editor = createMockEditor();
+    mocks.useEditor.mockReturnValue(editor);
+    mocks.getTiptapEditorView.mockReturnValue(null);
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const callsBefore = mocks.useEditor.mock.calls.length;
+    const { unmount } = render(<TiptapEditorInner hidden={false} />);
+    const config = mocks.useEditor.mock.calls[callsBefore][0] as {
+      onUpdate: (ctx: { editor: unknown; transaction: unknown }) => void;
+    };
+
+    // Schedule a pending flush (small doc → RAF path), then make the final
+    // serialization fail. The unmount flush must log the failure.
+    config.onUpdate({ editor, transaction: { getMeta: () => undefined } });
+    mocks.serializeMarkdown.mockImplementationOnce(() => {
+      throw new Error("boom");
+    });
+
+    expect(() => unmount()).not.toThrow();
+    expect(errSpy).toHaveBeenCalledWith(
+      "[Tiptap]",
+      expect.stringContaining("Unmount flush failed"),
+      expect.any(Error),
+    );
+    errSpy.mockRestore();
+  });
+});
+
+// ── Audit F6 — deferred init must consume pending content-search nav ──
+
+describe("TiptapEditorInner — deferred init consumes pending nav (audit F6)", () => {
+  it("consumes pending nav after deferred initialization and skips focus restore", async () => {
+    vi.clearAllMocks();
+    const fakeView = {
+      state: {
+        tr: { replaceWith: vi.fn().mockReturnThis(), setMeta: vi.fn().mockReturnThis() },
+        doc: { content: { size: 10 } },
+      },
+      dispatch: vi.fn(),
+      focus: vi.fn(),
+    };
+    mocks.getTiptapEditorView.mockReturnValue(fakeView);
+    mocks.parseMarkdown.mockReturnValue({ type: "doc", content: [] });
+    mocks.consumeWysiwygPendingNav.mockReturnValue(true);
+
+    setupUseEditorWithCallbacks();
+    render(<TiptapEditorInner hidden={false} />);
+
+    // The nav is consumed by the deferred onCreate init — the pinned tab id is
+    // used, not a call-time focused-tab lookup.
+    await vi.waitFor(() => {
+      expect(mocks.consumeWysiwygPendingNav).toHaveBeenCalledWith(fakeView, "tab-1");
+    });
+    // A consumed nav means the RAF-deferred focus restore must be skipped —
+    // it would clobber the jump's selection.
+    expect(mocks.scheduleTiptapFocusAndRestore).not.toHaveBeenCalled();
+  });
+
+  it("falls back to focus/cursor restore when no nav is pending", async () => {
+    vi.clearAllMocks();
+    mocks.getTiptapEditorView.mockReturnValue(null);
+    mocks.parseMarkdown.mockReturnValue({ type: "doc", content: [] });
+    mocks.consumeWysiwygPendingNav.mockReturnValue(false);
+
+    setupUseEditorWithCallbacks();
+    render(<TiptapEditorInner hidden={false} />);
+
+    await vi.waitFor(() => {
+      expect(mocks.scheduleTiptapFocusAndRestore).toHaveBeenCalled();
+    });
+  });
+});
+
+// ── Audit F7 — a preview pane must not steal focus on visibility change ──
+
+describe("TiptapEditorInner — preview visibility transition (audit F7)", () => {
+  it("does not steal focus or consume pending nav when a preview becomes visible", () => {
+    vi.clearAllMocks();
+    const editor = createMockEditor();
+    mocks.useEditor.mockReturnValue(editor);
+    mocks.getTiptapEditorView.mockReturnValue(null);
+    mocks.parseMarkdown.mockReturnValue({ type: "doc", content: [] });
+    mocks.consumeWysiwygPendingNav.mockReturnValue(false);
+
+    const callsBefore = mocks.useEditor.mock.calls.length;
+    const { rerender } = render(<TiptapEditorInner hidden={true} preview={true} />);
+    const config = mocks.useEditor.mock.calls[callsBefore][0] as {
+      onCreate: (ctx: { editor: unknown }) => void;
+    };
+
+    // Drive the deferred init deterministically (editorInitialized → true).
+    vi.useFakeTimers();
+    config.onCreate({ editor });
+    vi.runAllTimers();
+    vi.useRealTimers();
+
+    vi.clearAllMocks();
+    rerender(<TiptapEditorInner hidden={false} preview={true} />);
+
+    // The preview syncs content but must not grab focus or eat the pending
+    // navigation that belongs to the editable pane.
+    expect(mocks.scheduleTiptapFocusAndRestore).not.toHaveBeenCalled();
+    expect(mocks.consumeWysiwygPendingNav).not.toHaveBeenCalled();
   });
 });

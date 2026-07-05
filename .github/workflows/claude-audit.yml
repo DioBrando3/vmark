@@ -27,11 +27,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 1
 
-      - uses: anthropics/claude-code-action@0cb4f3e5e764d2e00407d29b6bf0aa9df0976d88 # v1
+      - uses: anthropics/claude-code-action@a92e7c70a4da9793dc164451d829089dc057a464 # v1
         id: claude
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

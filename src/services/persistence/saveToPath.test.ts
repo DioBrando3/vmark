@@ -93,6 +93,7 @@ function makeSettings(overrides?: {
       historyMergeWindow: 30,
       historyMaxFileSize: 512,
       lineEndingsOnSave: "preserve",
+      workspaceRailMode: false,
       ...overrides?.general,
     },
     markdown: {
@@ -158,6 +159,33 @@ describe("saveToPath", () => {
       mergeWindowSeconds: 30,
       maxFileSizeKB: 512,
     });
+  });
+
+  it("blocks saving when another workspace instance owns a dirty writable copy", async () => {
+    vi.mocked(useSettingsStore.getState).mockReturnValue(
+      makeSettings({ general: { workspaceRailMode: true } }),
+    );
+    vi.mocked(useTabStore.getState).mockReturnValue({
+      tabs: {
+        main: [{ id: "tab-other", filePath: "/tmp/doc.md", title: "doc", isPinned: false, formatId: "markdown" }],
+        "doc-1": [{ id: "tab-1", filePath: "/tmp/doc.md", title: "doc", isPinned: false, formatId: "markdown" }],
+      },
+      updateTabPath: mockUpdateTabPath,
+    } as unknown as ReturnType<typeof useTabStore.getState>);
+    mockGetDocument.mockImplementation((tabId: string) =>
+      tabId === "tab-other"
+        ? { filePath: "/tmp/doc.md", isDirty: true, readOnly: false, lineEnding: "unknown" }
+        : { filePath: "/tmp/doc.md", isDirty: true, readOnly: false, lineEnding: "unknown" },
+    );
+
+    const result = await saveToPath("tab-1", "/tmp/doc.md", "Hello", "manual");
+
+    expect(result).toBe(false);
+    expect(invoke).not.toHaveBeenCalled();
+    expect(toastMocks.error).toHaveBeenCalledWith(
+      expect.stringContaining("dialog:toast.sameFileDirtyConflict"),
+      { pin: true },
+    );
   });
 
   it("normalizes line endings based on settings", async () => {

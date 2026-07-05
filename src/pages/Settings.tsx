@@ -167,12 +167,11 @@ export function SettingsPage() {
     };
   }, []);
 
-  // Switch to appearance when dev sections are hidden while viewing them
-  useEffect(() => {
-    if (!showDevSection && section === "advanced") {
-      setSection("appearance");
-    }
-  }, [showDevSection, section]);
+  // Switch to appearance when dev sections are hidden while viewing them.
+  // Adjusted during render (converges immediately) rather than in an effect (#1063).
+  if (!showDevSection && section === "advanced") {
+    setSection("appearance");
+  }
 
   const navItems = [
     ...navConfig
@@ -249,7 +248,7 @@ export function SettingsPage() {
         {/* Content */}
         <SettingsSearchContext.Provider value={normalizedQuery}>
           <div
-            className="flex-1 overflow-auto p-6"
+            className="flex-1 overflow-auto p-6 [scrollbar-gutter:stable]"
             data-settings-searching={searching ? "" : undefined}
           >
             {searching ? (

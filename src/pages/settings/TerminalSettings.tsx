@@ -132,7 +132,9 @@ export function TerminalSettings() {
 
   const positionOptions = [
     { value: "auto", label: t("terminal.panelPosition.auto") },
+    { value: "top", label: t("terminal.panelPosition.top") },
     { value: "bottom", label: t("terminal.panelPosition.bottom") },
+    { value: "left", label: t("terminal.panelPosition.left") },
     { value: "right", label: t("terminal.panelPosition.right") },
   ];
 
@@ -164,7 +166,9 @@ export function TerminalSettings() {
 
         <SettingRow label={t("terminal.panelPosition.label")} description={t("terminal.panelPosition.description")}>
           <Select
-            value={terminal.position}
+            // "auto-flipped" is a swap-driven refinement of auto; show it as
+            // "Auto" here. Re-selecting Auto clears the flip.
+            value={terminal.position === "auto-flipped" ? "auto" : terminal.position}
             options={positionOptions}
             onChange={(v) => updateTerminalSetting("position", v as TerminalPosition)}
           />
@@ -267,6 +271,13 @@ export function TerminalSettings() {
               { value: "audible", label: t("terminal.bellMode.audible") },
             ]}
             onChange={(v) => updateTerminalSetting("bellMode", v)}
+          />
+        </SettingRow>
+
+        <SettingRow label={t("terminal.notifyOnBell.label")} description={t("terminal.notifyOnBell.description")}>
+          <Toggle
+            checked={terminal.notifyOnBell ?? true}
+            onChange={(v) => updateTerminalSetting("notifyOnBell", v)}
           />
         </SettingRow>
 

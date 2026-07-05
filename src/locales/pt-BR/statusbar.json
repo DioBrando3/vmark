@@ -1,6 +1,5 @@
 {
   "openSidebar": "Abrir barra lateral",
-  "newTab": "Nova aba",
   "newTabTitle": "Nova aba",
   "autoSavePaused": "Salvamento automático pausado",
   "autoSavePausedTitle": "Salvamento automático pausado: o arquivo foi excluído do disco. Salve manualmente com {{shortcut}}.",
@@ -50,6 +49,7 @@
   "pressAgainToQuit": "Pressione {{key}} novamente para sair",
   "updateChecking": "Verificando atualizações...",
   "updateDownloading": "Baixando atualização...",
+  "updateInstalling": "Instalando atualização...",
   "updateAvailable": "Atualização disponível — clique para ver",
   "updateAvailableVersion": "Atualização disponível: v{{version}} — clique para ver",
   "updateDownloadingPercent": "Baixando: {{percent}}%",
@@ -66,6 +66,8 @@
   "terminal.maxSessions": "Máximo de 5 sessões",
   "terminal.closeSession": "Fechar",
   "terminal.restartSession": "Reiniciar",
+  "terminal.swapPosition": "Trocar posição",
+  "terminal.notify.attention": "{{name}} precisa de atenção",
   "terminal.contextMenu.copy": "Copiar",
   "terminal.contextMenu.copyUnwrapped": "Copiar sem quebras de linha",
   "terminal.contextMenu.paste": "Colar",

@@ -160,7 +160,9 @@ menu:
 
   # === View menu ===
   view: "Visualizar"
+  view.wysiwygMode: "Modo WYSIWYG"
   view.sourceMode: "Modo de código-fonte"
+  view.markdownSplit: "Visualização dividida do Markdown"
   view.focusMode: "Modo de foco"
   view.typewriterMode: "Modo máquina de escrever"
   view.actualSize: "Tamanho real"
@@ -175,6 +177,7 @@ menu:
   view.outline: "Alternar estrutura"
   view.fileExplorer: "Alternar explorador de arquivos"
   view.history: "Alternar histórico"
+  view.knowledgeBase: "Alternar base de conhecimento"
   view.terminal: "Alternar terminal"
   view.checkMarkdown: "Verificar Markdown"
   view.lintNext: "Próximo problema"
@@ -182,6 +185,7 @@ menu:
   # === Window menu ===
   window: "Janela"
   window.bringAllToFront: "Trazer tudo para frente"
+  window.status: "Status das janelas"
 
   # === Help menu ===
   help: "Ajuda"
@@ -260,6 +264,9 @@ errors:
   # === MCP ===
   mcp.spawnInProgress: "A inicialização do sidecar MCP já está em andamento"
   mcp.configMismatch: "Falha na validação da configuração: o conteúdo gravado não corresponde"
+
+window:
+  settings.title: "Configurações"
 
 cli:
   dialogTitle: "Comando do shell"

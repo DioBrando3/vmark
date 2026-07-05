@@ -143,6 +143,35 @@ The following settings are saved per workspace:
 Workspace configuration is tied to the folder path. Opening the same folder on the same machine always restores your settings, even from a different window.
 :::
 
+## Empty Workspace Window
+
+Closing the last open document no longer closes the window. Instead, the window stays open on a **Welcome screen**, and — if you have a workspace open — its sidebar and file tree remain visible. This works the same way on macOS, Windows, and Linux.
+
+The Welcome screen offers quick actions to get back to work:
+
+- **New File**, **Open File**, and **Open Folder** buttons
+- A **Recent** list — click any entry to reopen it
+
+To close the window itself, use the red traffic-light button, `Cmd/Ctrl + Q` (quit), or press `Cmd/Ctrl + W` again while the Welcome screen is showing.
+
+## Side-by-Side Documents
+
+Open two **different** documents at once — split the editor into two panes, each
+with its own document. Useful for bilingual reading/translation (original on one
+side, translation on the other) or keeping a reference open while you write.
+This is distinct from **Markdown Split View** (`Shift + F6`), which is the
+source + preview of the *same* file.
+
+- Toggle the split with **`Alt + Mod + \`** or the command palette
+  (**Split Editor — Two Documents**). It opens the current document in the
+  second pane; click a tab while a pane is focused to change that pane's
+  document.
+- Drag the divider (or focus it and use the arrow keys) to resize the panes.
+- The pane you're editing is the **focused** pane — the toolbar, find bar, and
+  menu commands act on it.
+- Turn on **Sync Scroll Between Split Panes** (command palette) to scroll both
+  sides together proportionally — handy for lining up a translation.
+
 ## Session Restore
 
 When you close a window that has a workspace open, VMark saves the list of open tabs to the workspace config. The next time you open the same workspace, those tabs are restored automatically.
@@ -170,6 +199,21 @@ You can pull a tab out of its window to create a new one:
 - Pinned tabs cannot be dragged
 
 The gesture is direction-locked: horizontal movement starts a reorder, while vertical movement triggers a detach. You can switch from reorder to detach mid-drag by moving the pointer outside the tab bar.
+
+### Window Status Panel
+
+When you run Claude Code across several windows, **Window > Window Status** (also in the command palette) opens a panel that lists every other open window with its live status and lets you jump straight to it.
+
+Each row shows the window's document name and its current status:
+
+| Status | Meaning |
+|--------|---------|
+| **Needs attention** | A terminal in that (unfocused) window rang the bell — Claude Code rings it when a turn finishes or it's waiting for you |
+| **Running** | A VMark AI genie is currently running in that window |
+| **Error** | The last AI genie run failed |
+| **Idle** | Nothing running |
+
+Rows are ranked attention-first, so the window that needs you sits at the top. Click any row to focus and raise that window; focusing a window clears its "needs attention" flag. The status is sourced from two reliable signals — VMark's own AI-genie invocation state and the terminal bell — not by parsing terminal output.
 
 ## External Changes
 

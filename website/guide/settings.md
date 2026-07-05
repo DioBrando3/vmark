@@ -110,10 +110,12 @@ Paste behavior, layout, and HTML rendering settings.
 
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
+| Split source/preview by default | Open Markdown files in the side-by-side source + live preview split (otherwise WYSIWYG). Toggle per session with `Shift + F6` or **View → Markdown Split View** | Off | On / Off |
 | Block element font size | Relative font size for lists, blockquotes, tables, alerts, and details blocks | 100% | 100%, 95%, 90%, 85% |
 | Heading alignment | Text alignment for headings | Left | Left, Center |
 | Image & diagram borders | Whether to show a border around images, Mermaid diagrams, and math blocks | None | None, Always, On hover |
 | Image & table alignment | Horizontal alignment for block images and tables | Center | Center, Left |
+| Code block line numbers | Show line numbers inside code blocks in the WYSIWYG editor. Independent of the View menu's **Line Numbers**, which controls the Source/Split editor's gutter | Off | On / Off |
 
 ### Lint
 
@@ -127,10 +129,18 @@ See [Markdown Lint](/guide/lint) for the full rule list and severity levels.
 
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
-| Raw HTML in rich text | Control whether raw HTML blocks are rendered in WYSIWYG mode | Hidden | Hidden, Sanitized, Sanitized + styles |
+| Raw HTML in rich text | Control whether raw HTML blocks are rendered in WYSIWYG mode | Sanitized | Hidden, Sanitized, Sanitized + styles |
+| Allowed HTML tags | How broad the rendered tag set is | Strict | Strict, Extended |
+| Also allow these tags | Extra tag names to allow, comma-separated | _(empty)_ | e.g. `kbd, samp, var` |
 
 ::: tip
-**Hidden** is the safest option — raw HTML blocks are collapsed and not rendered. **Sanitized** renders HTML with dangerous tags stripped. **Sanitized + styles** additionally preserves inline `style` attributes.
+**Hidden** collapses raw HTML and renders nothing. **Sanitized** renders HTML with dangerous tags stripped. **Sanitized + styles** additionally preserves a safe subset of inline `style` attributes.
+
+**Strict** allows a small, conservative tag set. **Extended** additionally renders `<svg>` (and its safe child elements), `<figure>`/`<figcaption>`, `<details>`/`<summary>`, and other semantic/structural tags — all still sanitized. Use **Also allow these tags** to add specific extras on top (e.g. `kbd, samp, var`).
+:::
+
+::: warning
+Regardless of these settings, dangerous tags (`<script>`, `<style>`, `<iframe>`, `<form>`, event handlers, …) are **always** stripped — the custom-tags field cannot re-enable them. Allow-list breadth only affects the WYSIWYG preview; the raw HTML in your file is never modified.
 :::
 
 ## Files & Images
@@ -203,7 +213,7 @@ The MCP (Model Context Protocol) server allows external AI assistants like Claud
 |---------|-------------|---------|
 | Enable MCP Server | Start or stop the MCP server. When running, a status badge shows the port and connected clients | On (toggle) |
 | Start on launch | Automatically start the MCP server when VMark opens | On |
-| Auto-approve edits | Apply AI-initiated document changes without showing a preview for approval first. Use with caution | Off |
+| Auto-approve edits | Apply AI-initiated document changes without showing a preview for approval first, and allow MCP clients to save to new file locations. When off, an MCP request to save to a new path is refused and a toast notifies you. Use with caution | Off |
 
 When the server is running, the panel also displays:
 - **Port** — automatically assigned; AI clients discover it through the config file
@@ -243,6 +253,20 @@ For the full list of formats and their previews, see [Supported Formats](/guide/
 | **Code viewers** | Off | 12 read-only viewers (`.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.rs`, `.go`, `.css`, `.sh`, `.bash`, `.rb`, `.lua`). Open in a syntax-highlighted viewer with **Enable editing** and **Open in external editor** buttons. |
 
 When a category is off, the matching extensions fall through to the plain-text fallback so the file still opens — just without the schema view.
+
+### Default view mode
+
+Preview-capable files (HTML, SVG, Mermaid, JSON, YAML, TOML) open in one of three
+[view modes](/guide/formats#view-modes-source-split-preview):
+
+| Option | Result |
+|---|---|
+| **Source** | Editable source pane, full width. |
+| **Split** (default) | Source and preview side by side. |
+| **Preview** | Read-only render, full width. |
+
+This is the default for newly-opened tabs; each tab remembers its own choice, and
+you can switch any tab with the on-screen toggle or `F6` / `Shift + F6`.
 
 ### External editor
 
@@ -335,7 +359,7 @@ Configure the integrated terminal panel. Open the terminal with `` Ctrl + ` ``.
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
 | Shell | Which shell to use. Requires a terminal restart to take effect | System Default | Auto-detected shells on your system (e.g., zsh, bash, fish) |
-| Panel Position | Where to place the terminal panel | Auto | Auto (based on window aspect ratio), Bottom, Right |
+| Panel Position | Where to place the terminal panel | Auto | Auto (based on window aspect ratio), Top, Bottom, Left, Right |
 | Panel Size | Proportion of available space the terminal occupies. Drag-resizing the panel also updates this value | 40% | 10% to 80% |
 | Font Size | Text size in the terminal | 13px | 10px to 24px |
 | Line Height | Vertical spacing between terminal lines | 1.2 (Compact) | 1.0 (Tight) to 2.0 (Extra) |
@@ -353,6 +377,7 @@ Two macOS/Unix-only toggles also appear here: **Option as Meta Key** (macOS only
 | Setting | Description | Default | Options |
 |---------|-------------|---------|---------|
 | Terminal bell | How a terminal bell (BEL) is signalled. **Visual** marks background activity on the session tab; **Audible** plays a soft beep and (for a background session) also flags the tab so you can locate it; **Off** ignores it. Applies live to running sessions | Visual | Off, Visual, Audible |
+| Notify when unfocused | Show an OS notification (naming the window's document) when a terminal rings the bell while that VMark window isn't focused — e.g. Claude Code finishing a turn. Lets you track Claude Code across multiple windows without watching each one. Requires granting notification permission on first use | On | On / Off |
 | Minimum contrast | Lift faint terminal text to a minimum contrast ratio against its background. Raise it for readability; **Off** disables the lift. Applies live to running sessions | WCAG AA (4.5:1) | Off, WCAG AA (4.5:1), WCAG AAA (7:1), Maximum |
 
 See [Integrated Terminal](/guide/terminal) for more about sessions, keyboard shortcuts, and shell environment.

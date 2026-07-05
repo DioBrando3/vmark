@@ -37,11 +37,18 @@
   },
   "view": {
     "toggleSourceMode": "ソースモードを切り替え",
+    "toggleSplitDocuments": "エディターを分割：2つのドキュメントを並べて表示",
+    "toggleSyncScroll": "分割ペイン間でスクロールを同期",
+    "closePane": "分割ペインを閉じる",
+    "focusOtherPane": "もう一方のペインにフォーカス",
+    "setWysiwygMode": "WYSIWYGモードにする",
     "toggleFocusMode": "フォーカスモードを切り替え",
     "toggleTypewriterMode": "タイプライターモードを切り替え",
     "toggleOutline": "アウトラインを切り替え",
     "toggleFileExplorer": "ファイルエクスプローラーを切り替え",
     "toggleHistory": "履歴を切り替え",
+    "toggleKnowledgeBase": "ナレッジベースを切り替え",
+    "toggleMarkdownSplit": "Markdown分割ビューを切り替え",
     "toggleWordWrap": "ワードラップを切り替え",
     "toggleLineNumbers": "行番号を切り替え",
     "toggleDiagramPreview": "ダイアグラムプレビューを切り替え",
@@ -51,7 +58,8 @@
     "zoomActual": "実際のサイズ",
     "zoomIn": "拡大",
     "zoomOut": "縮小",
-    "toggleShowInvisibles": "不可視文字を切り替え"
+    "toggleShowInvisibles": "不可視文字を切り替え",
+    "toggleWindowStatus": "ウィンドウの状態"
   },
   "lint": {
     "check": "Markdown をチェック",

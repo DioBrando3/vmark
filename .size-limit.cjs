@@ -74,23 +74,27 @@ module.exports = [
   },
   {
     // Tiptap + ProseMirror. Eager because the editor is the home screen.
-    // ~446 kB at last check.
+    // Bumped 470 → 500 kB: Tiptap 3.18 → 3.27 (9 minor releases of the core
+    // editor) added ~18 kB; actual ~488 kB.
     name: "EAGER: vendor-tiptap",
     path: "dist/assets/vendor-tiptap-*.js",
-    limit: "470 kB",
+    limit: "500 kB",
     brotli: false,
   },
   {
-    // CodeMirror core. Eager today; narrowing language-data is a separate
-    // (B5) win. The negation glob excludes the `vendor-codemirror-languages-*`
-    // chunk below so growth in EITHER chunk fails its own budget rather
-    // than hiding in the sum.
+    // CodeMirror core + @lezer/* parsers. Eager today; narrowing language-data
+    // is a separate (B5) win. The negation glob excludes the
+    // `vendor-codemirror-languages-*` chunk below so growth in EITHER chunk
+    // fails its own budget rather than hiding in the sum.
+    // Absorbed the former vendor-lezer budget (650 kB): vite 8's rolldown
+    // merges the always-co-loaded @lezer group into this chunk, so the two
+    // budgets are now one (1050 + 650 -> 1700; actual 1.64 MB post-merge).
     name: "EAGER: vendor-codemirror",
     path: [
       "dist/assets/vendor-codemirror-*.js",
       "!dist/assets/vendor-codemirror-languages-*.js",
     ],
-    limit: "1050 kB",
+    limit: "1700 kB",
     brotli: false,
   },
   {
@@ -103,20 +107,15 @@ module.exports = [
     brotli: false,
   },
   {
-    // @lezer/* parsers used by the codeBlock highlighter. Eager because
-    // code blocks render on first paint.
-    name: "EAGER: vendor-lezer",
-    path: "dist/assets/vendor-lezer-*.js",
-    limit: "650 kB",
-    brotli: false,
-  },
-  {
     // Mermaid + @mermaid-js/* + d3-* + dagre-d3-es + khroma. LAZY since
     // the preload-helper pinning (see vite.config.ts manualChunks): loads
-    // on first diagram render, not at cold start. ~1694 kB.
+    // on first diagram render, not at cold start.
+    // Bumped 1750 → 2600 kB: Mermaid 11.12 → 11.16 added ~800 kB (new diagram
+    // types + deps); actual ~2.49 MB. Acceptable because this chunk is lazy
+    // (never in the cold-start path).
     name: "LAZY: vendor-mermaid",
     path: "dist/assets/vendor-mermaid-*.js",
-    limit: "1750 kB",
+    limit: "2600 kB",
     brotli: false,
   },
   {
@@ -184,9 +183,21 @@ module.exports = [
     // Settings route. Lazy via App.tsx.
     // Bumped 90 → 92 kB: fix(#946) adds the openInNewTab toggle (+label/description)
     // to EditorSettings, nudging this chunk ~150 B over the old 90 kB ceiling.
+    // Bumped 92 → 94 kB: the HTML allow-list controls (Allowed-tags select +
+    // custom-tags field in MarkdownSettings) and the top/left terminal-position
+    // options in TerminalSettings added ~0.8 kB.
+    // Bumped 94 → 95 kB: lucide-react v1 removed brand icons, so AboutSettings
+    // now ships the GitHub mark as a local inline SVG (GithubMark.tsx), pushing
+    // this chunk ~38 B over the old 94 kB ceiling.
+    // Bumped 95 → 97 kB: the split-pane "Default view mode" Select in
+    // FormatsSettings (Source/Split/Preview) pushed this ~140 B over the old
+    // 95 kB ceiling; +2 kB restores headroom.
+    // Bumped 97 → 99 kB: vite 8 (rolldown) emits ~2 kB more module-wrapper
+    // overhead on this chunk than rollup did for identical source inputs
+    // (95.35 → 97.5 kB across the bundler swap alone); +1.5 kB headroom.
     name: "LAZY: Settings page",
     path: "dist/assets/Settings-*.js",
-    limit: "92 kB",
+    limit: "99 kB",
     brotli: false,
   },
   {
@@ -197,10 +208,15 @@ module.exports = [
     brotli: false,
   },
   {
-    // CSS-as-JS string blob for HTML export. Lazy via the export flow.
+    // CSS-as-JS string blob for HTML export (raw editor/plugin CSS + inline
+    // KaTeX fonts). Lazy via the export flow. The chunk is pinned by name in
+    // vite.config.ts manualChunks — rolldown otherwise renames/merges it and
+    // the budget silently stops matching anything.
+    // Bumped 470 → 480 kB: vite 8 (rolldown) module-wrapper overhead on the
+    // base64 font strings (461.6 → 472.8 kB across the bundler swap alone).
     name: "LAZY: htmlExportStyles",
     path: "dist/assets/htmlExportStyles-*.js",
-    limit: "470 kB",
+    limit: "480 kB",
     brotli: false,
   },
 ];

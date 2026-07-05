@@ -37,11 +37,18 @@
   },
   "view": {
     "toggleSourceMode": "切換原始碼模式",
+    "toggleSplitDocuments": "分割編輯器：並排顯示兩個文件",
+    "toggleSyncScroll": "同步分割捲動",
+    "closePane": "關閉分割窗格",
+    "focusOtherPane": "聚焦另一個窗格",
+    "setWysiwygMode": "切換到所見即所得模式",
     "toggleFocusMode": "切換專注模式",
     "toggleTypewriterMode": "切換打字機模式",
     "toggleOutline": "切換大綱",
     "toggleFileExplorer": "切換檔案總管",
     "toggleHistory": "切換歷史紀錄",
+    "toggleKnowledgeBase": "切換知識庫",
+    "toggleMarkdownSplit": "切換 Markdown 分割檢視",
     "toggleWordWrap": "切換自動換行",
     "toggleLineNumbers": "切換行號",
     "toggleDiagramPreview": "切換圖表預覽",
@@ -51,7 +58,8 @@
     "zoomActual": "實際大小",
     "zoomIn": "放大",
     "zoomOut": "縮小",
-    "toggleShowInvisibles": "切換顯示隱形字元"
+    "toggleShowInvisibles": "切換顯示隱形字元",
+    "toggleWindowStatus": "視窗狀態"
   },
   "lint": {
     "check": "檢查 Markdown",

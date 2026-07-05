@@ -96,7 +96,11 @@ export const EXCLUDED_MENU_IDS: ReadonlySet<string> = new Set([
   "view-history",
   "clear-history",
   // View toggles (useViewShortcuts / dedicated listeners)
+  "wysiwyg-mode",
   "source-mode",
+  "markdown-split",
+  "knowledge-base",
+  "window-status",
   "focus-mode",
   "typewriter-mode",
   "word-wrap",

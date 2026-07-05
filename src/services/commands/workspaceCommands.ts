@@ -5,25 +5,24 @@
  * tab restoration), close the current workspace.
  */
 
-import { readTextFile } from "@tauri-apps/plugin-fs";
 import { open } from "@tauri-apps/plugin-dialog";
-import { registerCommand } from "./CommandBus";
+import { hasCommand, registerCommand } from "./CommandBus";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { useUIStore } from "@/stores/uiStore";
-import { useTabStore } from "@/stores/tabStore";
-import { useDocumentStore } from "@/stores/documentStore";
 import { useRecentWorkspacesStore } from "@/stores/workspaceStore";
 import { persistWorkspaceSession } from "@/hooks/workspaceSession";
 import { openWorkspaceWithConfig } from "@/hooks/openWorkspaceWithConfig";
-import { detectLinebreaks } from "@/utils/linebreakDetection";
-import { workspaceWarn, workspaceError } from "@/utils/debug";
+import { withReentryGuard } from "@/utils/reentryGuard";
+import { restoreWorkspaceTabs, restoreSplitLayout } from "@/services/navigation/restoreWorkspaceTabs";
+import { workspaceError } from "@/utils/debug";
 import i18n from "@/i18n";
 
 type Ctx = { windowLabel?: string };
 
 let registered = false;
 export function registerWorkspaceCommands(): void {
-  if (registered) return;
+  // HMR: the module-local flag resets on reload, but the bus registry survives.
+  if (registered || hasCommand("workspace.openFolder")) return;
 
   registerCommand({
     id: "workspace.openFolder",
@@ -31,40 +30,36 @@ export function registerWorkspaceCommands(): void {
     category: "workspace",
     run: async (_args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";
-      try {
-        const selected = await open({
-          directory: true,
-          multiple: false,
-          canCreateDirectories: true,
-          title: "Open Workspace Folder",
-        });
-        if (!selected) return;
-        const path = typeof selected === "string" ? selected : selected[0];
-        if (!path) return;
+      // Reentry guard: rapid repeated activation must not stack folder
+      // pickers or race workspace restoration.
+      await withReentryGuard(windowLabel, "open-folder", async () => {
+        try {
+          const selected = await open({
+            directory: true,
+            multiple: false,
+            canCreateDirectories: true,
+            title: i18n.t("dialog:openWorkspaceFolder.title"),
+          });
+          if (!selected) return;
+          const path = typeof selected === "string" ? selected : selected[0];
+          if (!path) return;
 
-        // Open the selected workspace in the CURRENT window. This is safe even
-        // with unsaved changes — opening a workspace doesn't close existing tabs,
-        // so dirty docs survive. (#1005: the old binary "Open in New Window?"
-        // dialog had no current-window option and duplicated its title on Linux.)
-        const existing = await openWorkspaceWithConfig(path);
-        useUIStore.getState().showSidebarWithView("files");
-        useRecentWorkspacesStore.getState().addWorkspace(path);
+          // Open the selected workspace in the CURRENT window. This is safe even
+          // with unsaved changes — opening a workspace doesn't close existing tabs,
+          // so dirty docs survive. (#1005: the old binary "Open in New Window?"
+          // dialog had no current-window option and duplicated its title on Linux.)
+          const existing = await openWorkspaceWithConfig(path, { windowLabel });
+          useUIStore.getState().showSidebarWithView("files");
+          useRecentWorkspacesStore.getState().addWorkspace(path);
 
-        if (existing?.lastOpenTabs && existing.lastOpenTabs.length > 0) {
-          for (const filePath of existing.lastOpenTabs) {
-            try {
-              const content = await readTextFile(filePath);
-              const tabId = useTabStore.getState().createTab(windowLabel, filePath);
-              useDocumentStore.getState().initDocument(tabId, content, filePath);
-              useDocumentStore.getState().setLineMetadata(tabId, detectLinebreaks(content));
-            } catch {
-              workspaceWarn(`Could not restore tab: ${filePath}`);
-            }
-          }
+          // Shared restore loop with dedup guard — skips files already open in
+          // this window so an existing dirty tab is never re-init'd/overwritten.
+          await restoreWorkspaceTabs(windowLabel, existing?.lastOpenTabs);
+          restoreSplitLayout(windowLabel, path);
+        } catch (error) {
+          workspaceError("Failed to open folder:", error);
         }
-      } catch (error) {
-        workspaceError("Failed to open folder:", error);
-      }
+      });
     },
   });
 

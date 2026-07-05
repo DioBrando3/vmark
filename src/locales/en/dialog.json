@@ -33,7 +33,8 @@
     "buttonKeep": "Keep my changes",
     "buttonReloadAll": "Reload All",
     "buttonKeepAll": "Keep All",
-    "buttonReviewEach": "Review Each"
+    "buttonReviewEach": "Review Each",
+    "unknownFile": "file"
   },
   "revertToSaved": {
     "title": "Revert to Saved",
@@ -55,6 +56,9 @@
     "title": "Workspace Not Found",
     "message": "This workspace folder could not be found. It may have been moved or deleted.\n\nRemove from recent workspaces?"
   },
+  "openWorkspaceFolder": {
+    "title": "Open Workspace Folder"
+  },
   "unsavedDocument": {
     "title": "Unsaved Document",
     "message": "Please save the document first to change images.",
@@ -71,12 +75,6 @@
   "saveRequired": {
     "title": "Save Required"
   },
-  "closeLastTab": {
-    "title": "Close Last Document",
-    "message": "This is the last open document in this workspace. Close it?",
-    "confirm": "Close",
-    "cancel": "Cancel"
-  },
   "fileTooLarge": {
     "title": "File Too Large",
     "message": "File is too large ({{size}} MB). Maximum is {{max}} MB."
@@ -92,7 +90,13 @@
   "errorBoundary": {
     "title": "Something went wrong",
     "featureFailedTitle": "{{feature}} failed to render",
-    "tryAgain": "Try again"
+    "tryAgain": "Try again",
+    "feature": {
+      "editor": "Editor",
+      "terminal": "Terminal",
+      "settings": "Settings",
+      "pdfExport": "PDF Export"
+    }
   },
   "pdfExport": {
     "title": "Export PDF",
@@ -112,6 +116,7 @@
   },
   "chooseFolderForDocs": "Choose folder for {{count}} new documents",
   "toast": {
+    "mcpApprovalRequired": "Blocked an AI request to save to a new location: {{filename}}. Enable \"Auto-approve edits\" in Settings → Integrations to allow this.",
     "saveDialogFailed": "Save dialog failed: {{error}}",
     "failedToMoveToNewWindow": "Failed to move file to new window",
     "failedToSaveDocuments": "Failed to save documents",
@@ -122,6 +127,10 @@
     "quarantineCleared_other": "Cleared macOS quarantine on {{count}} markdown files in this workspace.",
     "quarantineClearedDesc": "macOS marks files downloaded by some apps with a flag that silently blocks Finder double-click while VMark is running. VMark cleared it so those files open. Disable in Settings → Advanced.",
     "failedToOpenFilesInNewWindow": "Failed to open files in new window",
+    "workspaceMoveFailed": "Failed to move workspace to a new window",
+    "workspaceDuplicateFailed": "Failed to duplicate workspace",
+    "workspaceDuplicateSkipped_one": "Duplicated workspace and skipped 1 dirty, untitled, or missing tab.",
+    "workspaceDuplicateSkipped_other": "Duplicated workspace and skipped {{count}} dirty, untitled, or missing tabs.",
     "onlyMarkdownViaDropDrop": "Only markdown files can be opened via drag-drop",
     "unsupportedFileViaDropDrop": "This file type is not supported by VMark.",
     "restored": "Restored: {{filename}}",
@@ -136,6 +145,8 @@
     "exportHtmlSuccess": "Exported to folder",
     "exportHtmlResourceWarning_one": "1 resource could not be included",
     "exportHtmlResourceWarning_other": "{{count}} resources could not be included",
+    "exportImageWarning_one": "1 image could not be embedded and is missing from the output",
+    "exportImageWarning_other": "{{count}} images could not be embedded and are missing from the output",
     "printRequiresMac": "Print requires macOS.",
     "nativePdfRequiresMac": "Native PDF export requires macOS. Use Print instead.",
     "failedToPreparePdf": "Failed to prepare PDF export",
@@ -187,6 +198,7 @@
     "unpinBeforeClosing": "Unpin tab before closing",
     "failedToInsertDroppedImage": "Failed to insert dropped image.",
     "failedToSaveGeneric": "Failed to save: {{error}}",
+    "sameFileDirtyConflict": "Cannot save \"{{file}}\" because another workspace window has unsaved changes for the same file ({{workspace}}).",
     "failedToSaveParentMissing": "Folder no longer exists: {{dir}} — choose a new location to save.",
     "failedToInsertImage": "Failed to insert image",
     "failedToInsertImages": "Failed to insert {{count}} images",

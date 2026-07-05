@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Editor } from "./Editor";
 import { WindowProvider } from "@/contexts/WindowContext";
@@ -16,6 +16,12 @@ beforeEach(() => {
 afterEach(() => {
   __resetRegistry();
   __resetBootstrap();
+  // Restore the default active tab / lookup for tests that flipped them.
+  mockTabStore.activeTabId = { main: "tab-1" };
+  mockTabStore.findTabById = (id: string) =>
+    id === "tab-1"
+      ? { id: "tab-1", filePath: null, title: "Untitled", isPinned: false }
+      : null;
 });
 
 type Selector<T> = (state: T) => unknown;
@@ -149,16 +155,29 @@ vi.mock("@/stores/documentStore", () => {
   };
 });
 
-vi.mock("@/stores/tabStore", () => {
-  const mockTabStore = {
+// Hoisted so individual tests can flip activeTabId (e.g. to null for the
+// empty-workspace / Welcome-screen seam) and reset it afterwards.
+const { mockTabStore } = vi.hoisted(() => ({
+  mockTabStore: {
     tabs: { main: [{ id: "tab-1", filePath: null, title: "Untitled", isPinned: false }] },
-    activeTabId: { main: "tab-1" },
+    activeTabId: { main: "tab-1" as string | null },
     getTabsByWindow: () => [{ id: "tab-1", filePath: null, title: "Untitled", isPinned: false }],
     createTab: vi.fn(() => "tab-1"),
-  };
+    findTabById: (id: string) =>
+      id === "tab-1"
+        ? { id: "tab-1", filePath: null, title: "Untitled", isPinned: false }
+        : null,
+  },
+}));
 
-  return { useTabStore: createZustandMock(mockTabStore) };
-});
+vi.mock("@/stores/tabStore", () => ({ useTabStore: createZustandMock(mockTabStore) }));
+
+// Stub the media surface so the dispatch test asserts routing, not rendering.
+vi.mock("./MediaViewer/MediaViewer", () => ({
+  MediaViewer: ({ tabId }: { tabId: string }) => (
+    <div data-testid="media-viewer">{tabId}</div>
+  ),
+}));
 
 vi.mock("@/stores/settingsStore", () => {
   const state = {
@@ -217,6 +236,19 @@ describe("Editor", () => {
     expect(content).toBeInTheDocument();
   });
 
+  it("renders the Welcome screen (no editor) when no tab is active", () => {
+    // Empty-workspace window: the last tab was closed, the window stays open.
+    mockTabStore.activeTabId = { main: null };
+
+    renderWithProvider(<Editor />);
+
+    // Welcome quick-actions are present...
+    expect(screen.getByRole("button", { name: "New File" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open Folder" })).toBeInTheDocument();
+    // ...and no editor surface is mounted.
+    expect(document.querySelector(".editor-content")).not.toBeInTheDocument();
+  });
+
   describe("WI-1A.5 — dispatch by FormatConfig.kind", () => {
     it("dispatchEditor maps a .txt path to a non-wysiwyg format", async () => {
       // The Editor.tsx dispatcher mounts SplitPaneEditor when
@@ -229,6 +261,21 @@ describe("Editor", () => {
       const cfg = dispatchEditor("/x/notes.txt");
       expect(cfg.id).toBe("txt");
       expect(cfg.kind).not.toBe("wysiwyg");
+    });
+
+    it("mounts MediaViewer (not SplitPaneEditor) for a kind:'media' tab", () => {
+      // The active tab points at an image file → dispatchEditor resolves the
+      // media format, and Editor.tsx must route it to MediaViewer so no
+      // CodeMirror source pane mounts.
+      mockTabStore.findTabById = (id: string) =>
+        id === "tab-1"
+          ? { id: "tab-1", filePath: "/pics/hero.png", title: "hero.png", isPinned: false }
+          : null;
+
+      renderWithProvider(<Editor />);
+
+      expect(screen.getByTestId("media-viewer")).toHaveTextContent("tab-1");
+      expect(document.querySelector(".split-pane-editor")).not.toBeInTheDocument();
     });
   });
 });

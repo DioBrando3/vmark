@@ -2,19 +2,19 @@
  * UniversalToolbar - Bottom formatting toolbar
  *
  * A universal, single-line toolbar anchored at the bottom of the window.
- * Triggered by Shift+Cmd+P, provides consistent formatting actions across
- * both WYSIWYG and Source modes.
+ * Triggered by Shift+Cmd+P, provides formatting actions across WYSIWYG and Source.
  *
- * Per redesign spec:
- * - Focus toggle model (Shift+Cmd+P toggles focus, not visibility)
- * - Two-step Escape (dropdown first, then toolbar)
- * - Session memory (cleared on toolbar close)
- * - Smart initial focus (active marks > selection > context > default)
+ * Per redesign spec: focus-toggle model (Shift+Cmd+P toggles focus, not visibility),
+ * two-step Escape (dropdown then toolbar), session memory (cleared on close), and
+ * smart initial focus (active marks > selection > context > default).
  *
  * @module components/Editor/UniversalToolbar
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent } from "react";
 import { useUIStore } from "@/stores/uiStore";
+import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
+import { tooltipWithShortcut } from "@/utils/tooltipWithShortcut";
+import { selectSourceEditing } from "@/stores/selectSourceEditing";
 import { useEditorStore } from "@/stores/editorStore";
 import { getToolbarButtonState, getToolbarItemState } from "@/plugins/toolbarActions/enableRules";
 import { getSourceMultiSelectionContext, getWysiwygMultiSelectionContext } from "@/plugins/toolbarActions/multiSelectionContext";
@@ -42,11 +42,12 @@ import "./universal-toolbar.css";
 export function UniversalToolbar() {
   const { t: tDialog } = useTranslation("dialog");
   const { t } = useTranslation("editor");
+  const aiPromptsShortcut = useShortcutsStore((state) => state.getShortcut("aiPrompts"));
   const visible = useUIStore((state) => state.universalToolbarVisible);
   const toolbarHasFocus = useUIStore((state) => state.universalToolbarHasFocus);
   const sessionFocusIndex = useUIStore((state) => state.toolbarSessionFocusIndex);
   const storeDropdownOpen = useUIStore((state) => state.toolbarDropdownOpen);
-  const sourceMode = useUIStore((state) => state.sourceMode);
+  const sourceMode = useUIStore(selectSourceEditing);
   const wysiwygContext = useEditorStore((state) => state.tiptap.context);
   const wysiwygView = useEditorStore((state) => state.tiptap.editorView);
   const wysiwygEditor = useEditorStore((state) => state.tiptap.editor);
@@ -86,11 +87,8 @@ export function UniversalToolbar() {
     [buttons, toolbarContext]
   );
 
-  // The AI-Prompts action button sits after the formatting groups and is
-  // folded into the roving-tabindex model as a trailing pseudo-button at index
-  // `buttons.length` (a11y/A4 — otherwise it is keyboard-unreachable: the
-  // toolbar is out of the tab order until focused, and arrow nav only spans the
-  // group buttons). It is always enabled and is an action (never a dropdown).
+  // AI-Prompts action button: trailing pseudo-button in the roving-tabindex model
+  // at index `buttons.length` (a11y/A4 — keyboard-reachable). Always enabled, an action.
   const genieFocusIndex = buttons.length;
 
   const isButtonFocusable = useCallback(
@@ -104,7 +102,7 @@ export function UniversalToolbar() {
   );
 
   const focusActiveEditor = useCallback(() => {
-    const isSource = useUIStore.getState().sourceMode;
+    const isSource = selectSourceEditing(useUIStore.getState());
     if (isSource) {
       useEditorStore.getState().source.editorView?.focus();
       return;
@@ -161,7 +159,7 @@ export function UniversalToolbar() {
       const level = Number(action.split(":")[1]);
       /* v8 ignore next -- @preserve reason: NaN guard for malformed heading action strings; valid heading IDs always produce a number */
       if (Number.isNaN(level)) return;
-      const isSource = useUIStore.getState().sourceMode;
+      const isSource = selectSourceEditing(useUIStore.getState());
       if (isSource) {
         const state = useEditorStore.getState().source;
         setSourceHeadingLevel({
@@ -183,7 +181,7 @@ export function UniversalToolbar() {
       return;
     }
 
-    const isSource = useUIStore.getState().sourceMode;
+    const isSource = selectSourceEditing(useUIStore.getState());
     if (isSource) {
       const state = useEditorStore.getState().source;
       performSourceToolbarAction(action, {
@@ -260,8 +258,7 @@ export function UniversalToolbar() {
     },
   });
 
-  // Handle focus capture - update focusedIndex when a button receives focus
-  // This ensures state is updated BEFORE the re-render triggered by toolbarHasFocus change
+  // Update focusedIndex on focus capture — BEFORE the toolbarHasFocus re-render.
   const handleFocusCapture = useCallback(
     (event: FocusEvent<HTMLDivElement>) => {
       const target = event.target as HTMLElement;
@@ -287,9 +284,8 @@ export function UniversalToolbar() {
     (direction: "left" | "right" | "forward" | "backward") => {
       const isArrowNav = direction === "left" || direction === "right";
       const isNext = direction === "right" || direction === "forward";
-      // genieFocusIndex + 1 = full roving count (group buttons + the trailing
-      // AI-Prompts pseudo-button), so dropdown-exit nav can land on the Genie
-      // button too (A4).
+      // genieFocusIndex + 1 = full roving count (group buttons + trailing AI-Prompts
+      // pseudo-button), so dropdown-exit nav can land on the Genie button too (A4).
       const newIndex = isNext
         ? getNextFocusableIndex(focusedIndex, genieFocusIndex + 1, isButtonFocusable)
         : getPrevFocusableIndex(focusedIndex, genieFocusIndex + 1, isButtonFocusable);
@@ -332,17 +328,18 @@ export function UniversalToolbar() {
     }
   }, [focusedIndex]);
 
-  // Sync with store's dropdown state (for global Escape handling)
+  // Sync local dropdown state from the external store (for global Escape handling).
   useEffect(() => {
-    // Store says dropdown should be closed, but local state says open
     if (!storeDropdownOpen && menuOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reacts to external store dropdown state (#1063)
       closeMenu();
     }
   }, [storeDropdownOpen, menuOpen, closeMenu]);
 
-  // Close dropdown when focus leaves toolbar (focus toggle)
+  // Close dropdown when focus leaves the toolbar (focus toggle).
   useEffect(() => {
     if (!toolbarHasFocus && menuOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reacts to external toolbar-focus signal (#1063)
       closeMenu(false);
     }
   }, [toolbarHasFocus, menuOpen, closeMenu]);
@@ -359,7 +356,9 @@ export function UniversalToolbar() {
     }
   }, [visible, toolbarHasFocus, focusActiveEditor]);
 
-  // Handle toolbar open/close and initial focus
+  // Handle toolbar open/close and initial focus — reacts to the external visibility
+  // toggle and seeds keyboard focus from session memory / button states (#1063).
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!visible) {
       wasVisibleRef.current = false;
@@ -389,6 +388,7 @@ export function UniversalToolbar() {
 
     wasVisibleRef.current = true;
   }, [visible, buttonStates, setFocusedIndex, closeMenu, sessionFocusIndex, tDialog]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Handle click outside dropdown
   useEffect(() => {
@@ -513,8 +513,8 @@ export function UniversalToolbar() {
       <button
         type="button"
         className="universal-toolbar-btn"
-        title={`${t("toolbar.aiPrompts")} (⌘Y)`}
-        aria-label={t("toolbar.aiPrompts")}
+        title={tooltipWithShortcut(t("toolbar.aiPrompts"), formatKeyForDisplay(aiPromptsShortcut))}
+        aria-label={tooltipWithShortcut(t("toolbar.aiPrompts"), formatKeyForDisplay(aiPromptsShortcut))}
         data-focus-index={genieFocusIndex}
         tabIndex={toolbarHasFocus && focusedIndex === genieFocusIndex ? 0 : -1}
         data-action="genie"

@@ -276,8 +276,13 @@
   "lint.yamlParseError": "YAML: {{message}}",
   "lint.yamlParseWarning": "YAML: {{message}}",
   "splitPane.editorLabel": "Editor for {{format}}",
+  "split.dividerLabel": "Redimensionar divisão",
   "splitPane.resize": "Resize source / preview",
   "splitPane.validationDiagnostics": "Validation diagnostics",
+  "splitPane.viewMode.label": "Modo de exibição",
+  "splitPane.viewMode.source": "Fonte",
+  "splitPane.viewMode.split": "Dividido",
+  "splitPane.viewMode.preview": "Visualização",
   "diagnostic.json/syntax": "JSON: {{message}}",
   "diagnostic.json/empty": "JSON: empty document is not valid",
   "diagnostic.mermaid/missing-diagram-type": "Mermaid: missing diagram type on the first non-comment line",
@@ -323,5 +328,13 @@
   "tableMenu.alignAllRight": "Alinhar tudo à direita",
   "tableMenu.formatTable": "Formatar tabela",
   "tableMenu.fitToWidth": "Ajustar à largura",
-  "tableMenu.naturalWidth": "Largura natural"
+  "tableMenu.naturalWidth": "Largura natural",
+  "terminal.processExited": "[Processo encerrado com o código {{code}}]",
+  "terminal.pressAnyKeyToRestart": "Pressione qualquer tecla para reiniciar...",
+  "terminal.failedToStart": "Falha ao iniciar o shell: {{error}}",
+  "terminal.pressAnyKeyToRetry": "Pressione qualquer tecla para tentar novamente...",
+  "terminal.restarting": "Reiniciando o shell...",
+  "media.cannotPreview": "Não é possível pré-visualizar este formato",
+  "media.openExternally": "Abrir com o aplicativo padrão",
+  "media.revealInFinder": "Mostrar no Finder"
 }

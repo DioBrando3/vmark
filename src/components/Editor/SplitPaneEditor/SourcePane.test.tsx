@@ -14,7 +14,7 @@ import { SourcePane } from "./SourcePane";
 const mockState = {
   documents: {
     "tab-1": { content: "hello world", filePath: "/foo.txt" as string | null },
-  } as Record<string, { content: string; filePath: string | null }>,
+  } as Record<string, { content: string; filePath: string | null; readOnly?: boolean }>,
   getDocument: (id: string) => mockState.documents[id],
   setContent: vi.fn((id: string, content: string) => {
     mockState.documents[id] = { ...mockState.documents[id], content };
@@ -60,7 +60,6 @@ const txtConfig: FormatConfig = {
   adapters: {
     saveDialogFilters: [{ name: "Plain", extensions: ["txt"] }],
     untitledExtension: "txt",
-    searchAdapter: "codemirror",
     readOnlyDefault: false,
     closeSavePolicy: "markdown-default",
     menuPolicy: {
@@ -76,6 +75,10 @@ describe("SourcePane", () => {
   afterEach(() => {
     cleanup();
     mockShowLineNumbers = false;
+    mockState.documents["tab-1"] = {
+      content: "hello world",
+      filePath: "/foo.txt",
+    };
   });
 
   it("renders a source-pane container", () => {
@@ -99,6 +102,18 @@ describe("SourcePane", () => {
       <SourcePane tabId="tab-1" formatId="txt" formatConfig={txtConfig} />,
     );
     expect(screen.getByRole("textbox")).toBeInTheDocument();
+  });
+
+  it("honors document-level read-only state", () => {
+    mockState.documents["tab-1"] = {
+      content: "locked",
+      filePath: "/foo.txt",
+      readOnly: true,
+    };
+    render(
+      <SourcePane tabId="tab-1" formatId="txt" formatConfig={txtConfig} />,
+    );
+    expect(screen.getByRole("textbox")).toHaveAttribute("aria-readonly", "true");
   });
 
   it("renders content from the document store on mount", () => {

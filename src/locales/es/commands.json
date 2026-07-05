@@ -37,11 +37,18 @@
   },
   "view": {
     "toggleSourceMode": "Alternar modo fuente",
+    "toggleSplitDocuments": "Dividir editor: dos documentos en paralelo",
+    "toggleSyncScroll": "Sincronizar el desplazamiento entre paneles divididos",
+    "closePane": "Cerrar panel dividido",
+    "focusOtherPane": "Enfocar el otro panel",
+    "setWysiwygMode": "Activar modo WYSIWYG",
     "toggleFocusMode": "Alternar modo enfoque",
     "toggleTypewriterMode": "Alternar modo máquina de escribir",
     "toggleOutline": "Alternar esquema",
     "toggleFileExplorer": "Alternar explorador de archivos",
     "toggleHistory": "Alternar historial",
+    "toggleKnowledgeBase": "Alternar base de conocimiento",
+    "toggleMarkdownSplit": "Alternar vista dividida de Markdown",
     "toggleWordWrap": "Alternar ajuste de línea",
     "toggleLineNumbers": "Alternar números de línea",
     "toggleDiagramPreview": "Alternar vista previa de diagramas",
@@ -51,7 +58,8 @@
     "zoomActual": "Tamaño real",
     "zoomIn": "Acercar",
     "zoomOut": "Alejar",
-    "toggleShowInvisibles": "Alternar caracteres invisibles"
+    "toggleShowInvisibles": "Alternar caracteres invisibles",
+    "toggleWindowStatus": "Estado de ventanas"
   },
   "lint": {
     "check": "Revisar Markdown",

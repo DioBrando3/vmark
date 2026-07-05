@@ -37,11 +37,18 @@
   },
   "view": {
     "toggleSourceMode": "Quelltextmodus umschalten",
+    "toggleSplitDocuments": "Editor teilen: Zwei Dokumente nebeneinander",
+    "toggleSyncScroll": "Bildlauf zwischen geteilten Bereichen synchronisieren",
+    "closePane": "Geteilten Bereich schließen",
+    "focusOtherPane": "Anderen Bereich fokussieren",
+    "setWysiwygMode": "WYSIWYG-Modus festlegen",
     "toggleFocusMode": "Fokusmodus umschalten",
     "toggleTypewriterMode": "Schreibmaschinenmodus umschalten",
     "toggleOutline": "Gliederung umschalten",
     "toggleFileExplorer": "Datei-Explorer umschalten",
     "toggleHistory": "Verlauf umschalten",
+    "toggleKnowledgeBase": "Wissensdatenbank umschalten",
+    "toggleMarkdownSplit": "Markdown-Splitansicht umschalten",
     "toggleWordWrap": "Zeilenumbruch umschalten",
     "toggleLineNumbers": "Zeilennummern umschalten",
     "toggleDiagramPreview": "Diagrammvorschau umschalten",
@@ -51,7 +58,8 @@
     "zoomActual": "Originalgröße",
     "zoomIn": "Vergrößern",
     "zoomOut": "Verkleinern",
-    "toggleShowInvisibles": "Unsichtbare Zeichen umschalten"
+    "toggleShowInvisibles": "Unsichtbare Zeichen umschalten",
+    "toggleWindowStatus": "Fensterstatus"
   },
   "lint": {
     "check": "Markdown prüfen",

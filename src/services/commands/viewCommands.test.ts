@@ -1,0 +1,264 @@
+// WI-5.1 — Knowledge Base panel reachable via command/menu (plan-audit C-1).
+// Plus full coverage of the ADR-012 view/lint command set: every command's
+// run() + title() closure is exercised. UI / settings / content-server stores
+// run for real in jsdom; only the editor/lint/terminal side-effecting deps
+// (which need a live editor) are mocked.
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const {
+  toggleSourceModeWithCheckpoint,
+  cleanupBeforeModeSwitch,
+  requestToggleTerminal,
+  toggleDocumentReadOnlyWithOwnership,
+  scrollToSelectedDiagnostic,
+  runActiveLint,
+} = vi.hoisted(() => ({
+  toggleSourceModeWithCheckpoint: vi.fn(),
+  cleanupBeforeModeSwitch: vi.fn(),
+  requestToggleTerminal: vi.fn(),
+  toggleDocumentReadOnlyWithOwnership: vi.fn(),
+  scrollToSelectedDiagnostic: vi.fn(),
+  runActiveLint: vi.fn(),
+}));
+
+vi.mock("@/hooks/useUnifiedHistory", () => ({ toggleSourceModeWithCheckpoint }));
+vi.mock("@/services/assembly/modeSwitchCleanup", () => ({ cleanupBeforeModeSwitch }));
+vi.mock("@/components/Terminal/terminalGate", () => ({ requestToggleTerminal }));
+vi.mock("@/services/workspaces/fileOwnership", () => ({ toggleDocumentReadOnlyWithOwnership }));
+vi.mock("@/hooks/lintNavigation", () => ({ scrollToSelectedDiagnostic }));
+vi.mock("@/services/lint/runActiveLint", () => ({ runActiveLint }));
+
+import {
+  registerViewCommands,
+  __resetViewCommandsRegistration,
+} from "./viewCommands";
+import {
+  getCommand,
+  executeCommand,
+  listCommands,
+  resolveLocalizedString,
+  _resetCommandBus,
+} from "./CommandBus";
+import { useContentServerStore } from "@/stores/contentServerStore";
+import { useUIStore } from "@/stores/uiStore";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { usePaneStore } from "@/stores/paneStore";
+import { useTabStore } from "@/stores/tabStore";
+
+beforeEach(() => {
+  _resetCommandBus();
+  __resetViewCommandsRegistration();
+  useContentServerStore.getState().reset();
+  useUIStore.getState().setMarkdownSplitView(false);
+  registerViewCommands();
+  vi.clearAllMocks();
+});
+
+describe("view.toggleKnowledgeBase", () => {
+  it("is registered as a view command", () => {
+    expect(getCommand("view.toggleKnowledgeBase")).toBeDefined();
+    expect(getCommand("view.toggleKnowledgeBase")?.category).toBe("view");
+  });
+
+  it("toggles the KB panel open then closed", async () => {
+    expect(useContentServerStore.getState().panelOpen).toBe(false);
+    expect(await executeCommand("view.toggleKnowledgeBase")).toBe(true);
+    expect(useContentServerStore.getState().panelOpen).toBe(true);
+    await executeCommand("view.toggleKnowledgeBase");
+    expect(useContentServerStore.getState().panelOpen).toBe(false);
+  });
+});
+
+describe("view.toggleMarkdownSplit", () => {
+  it("is registered as a view command", () => {
+    expect(getCommand("view.toggleMarkdownSplit")?.category).toBe("view");
+  });
+
+  it("toggles the markdown source/preview split on then off", async () => {
+    expect(useUIStore.getState().markdownSplitView).toBe(false);
+    await executeCommand("view.toggleMarkdownSplit");
+    expect(useUIStore.getState().markdownSplitView).toBe(true);
+    await executeCommand("view.toggleMarkdownSplit");
+    expect(useUIStore.getState().markdownSplitView).toBe(false);
+  });
+});
+
+describe("view.setWysiwygMode (#1070)", () => {
+  it("from Source mode: cleans up then toggles source off for the window", async () => {
+    useUIStore.getState().setSourceMode(true);
+    vi.clearAllMocks();
+    await executeCommand("view.setWysiwygMode", undefined, { windowLabel: "main" });
+    expect(cleanupBeforeModeSwitch).toHaveBeenCalledTimes(1);
+    expect(toggleSourceModeWithCheckpoint).toHaveBeenCalledWith("main");
+  });
+
+  it("is a no-op when already in WYSIWYG (neither flag set)", async () => {
+    useUIStore.getState().setSourceMode(false);
+    useUIStore.getState().setMarkdownSplitView(false);
+    vi.clearAllMocks();
+    await executeCommand("view.setWysiwygMode");
+    expect(cleanupBeforeModeSwitch).not.toHaveBeenCalled();
+    expect(toggleSourceModeWithCheckpoint).not.toHaveBeenCalled();
+  });
+});
+
+describe("registerViewCommands — full command set", () => {
+  it("is idempotent — a second call does not throw on duplicate ids", () => {
+    expect(() => registerViewCommands()).not.toThrow();
+    expect(getCommand("view.toggleSourceMode")).toBeDefined();
+  });
+
+  it("registers all 27 view/lint commands", () => {
+    const ids = listCommands().map((c) => c.id);
+    expect(ids).toContain("view.toggleSourceMode");
+    expect(ids).toContain("view.setWysiwygMode");
+    expect(ids).toContain("view.toggleSplitDocuments");
+    expect(ids).toContain("lint.prev");
+    expect(ids).toContain("view.toggleSyncScroll");
+    expect(ids).toContain("view.closePane");
+    expect(ids).toContain("view.focusOtherPane");
+    expect(ids.length).toBe(27);
+  });
+
+  it("every command resolves a non-empty title and executes without throwing", async () => {
+    for (const cmd of listCommands()) {
+      expect(resolveLocalizedString(cmd.title)).toBeTruthy();
+      await expect(
+        executeCommand(cmd.id, undefined, { windowLabel: "main" }),
+      ).resolves.toBe(true);
+    }
+  });
+});
+
+describe("HMR re-registration (dev-only Vite reload)", () => {
+  it("does not throw when the module flag resets but the bus registry survives", () => {
+    const before = listCommands().length;
+    // Simulate Vite HMR: the registrar module re-instantiates (module-local
+    // `registered` flag resets) while CommandBus's REGISTRY survives.
+    __resetViewCommandsRegistration();
+    expect(() => registerViewCommands()).not.toThrow();
+    expect(listCommands().length).toBe(before);
+  });
+});
+
+describe("view command behavior", () => {
+  it("toggleSourceMode cleans up then checkpoints the active window", async () => {
+    await executeCommand("view.toggleSourceMode", undefined, { windowLabel: "main" });
+    expect(cleanupBeforeModeSwitch).toHaveBeenCalled();
+    expect(toggleSourceModeWithCheckpoint).toHaveBeenCalledWith("main");
+  });
+
+  it("toggleSourceMode defaults to 'main' when no window label is given", async () => {
+    await executeCommand("view.toggleSourceMode");
+    expect(toggleSourceModeWithCheckpoint).toHaveBeenCalledWith("main");
+  });
+
+  it("toggleFocusMode / toggleTypewriterMode flip their UI flags", async () => {
+    const focus0 = useUIStore.getState().focusModeEnabled;
+    await executeCommand("view.toggleFocusMode");
+    expect(useUIStore.getState().focusModeEnabled).toBe(!focus0);
+
+    const tw0 = useUIStore.getState().typewriterModeEnabled;
+    await executeCommand("view.toggleTypewriterMode");
+    expect(useUIStore.getState().typewriterModeEnabled).toBe(!tw0);
+  });
+
+  it("toggleTerminal requests the terminal gate", async () => {
+    await executeCommand("view.toggleTerminal");
+    expect(requestToggleTerminal).toHaveBeenCalled();
+  });
+
+  it("lint.check runs the active linter for the window", async () => {
+    await executeCommand("lint.check", undefined, { windowLabel: "main" });
+    expect(runActiveLint).toHaveBeenCalledWith("main");
+  });
+
+  it("toggleFitTables / toggleShowInvisibles flip their markdown settings", async () => {
+    const fit0 = useSettingsStore.getState().markdown.tableFitToWidth;
+    await executeCommand("view.toggleFitTables");
+    expect(useSettingsStore.getState().markdown.tableFitToWidth).toBe(!fit0);
+
+    const inv0 = useSettingsStore.getState().markdown.showInvisibles;
+    await executeCommand("view.toggleShowInvisibles");
+    expect(useSettingsStore.getState().markdown.showInvisibles).toBe(!inv0);
+  });
+
+  it("zoomActual resets to 18; zoomIn/zoomOut step and clamp", async () => {
+    await executeCommand("view.zoomActual");
+    expect(useSettingsStore.getState().appearance.fontSize).toBe(18);
+
+    useSettingsStore.getState().updateAppearanceSetting("fontSize", 32);
+    await executeCommand("view.zoomIn"); // clamp at MAX
+    expect(useSettingsStore.getState().appearance.fontSize).toBe(32);
+
+    useSettingsStore.getState().updateAppearanceSetting("fontSize", 12);
+    await executeCommand("view.zoomOut"); // clamp at MIN
+    expect(useSettingsStore.getState().appearance.fontSize).toBe(12);
+
+    useSettingsStore.getState().updateAppearanceSetting("fontSize", 18);
+    await executeCommand("view.zoomIn");
+    expect(useSettingsStore.getState().appearance.fontSize).toBe(20);
+  });
+});
+
+describe("split-document view commands (#1081)", () => {
+  const W = "main";
+  let tab1: string;
+  let tab2: string;
+  beforeEach(() => {
+    usePaneStore.setState({ byWindow: {} });
+    useTabStore.getState().removeWindow(W);
+    tab1 = useTabStore.getState().createTab(W, "/a.md");
+    tab2 = useTabStore.getState().createTab(W, "/b.md");
+    useTabStore.getState().setActiveTab(W, tab1);
+  });
+
+  it("toggleSplitDocuments opens then closes the split", async () => {
+    await executeCommand("view.toggleSplitDocuments", undefined, { windowLabel: W });
+    expect(usePaneStore.getState().getSplit(W).enabled).toBe(true);
+    await executeCommand("view.toggleSplitDocuments", undefined, { windowLabel: W });
+    expect(usePaneStore.getState().getSplit(W).enabled).toBe(false);
+  });
+
+  it("toggleSplitDocuments is a no-op with no active document", async () => {
+    useTabStore.getState().removeWindow(W); // no tabs ⇒ getActiveTabId null
+    await expect(
+      executeCommand("view.toggleSplitDocuments", undefined, { windowLabel: W }),
+    ).resolves.toBe(true);
+    expect(usePaneStore.getState().getSplit(W).enabled).toBe(false);
+  });
+
+  it("toggleSyncScroll flips the split's syncScroll flag", async () => {
+    usePaneStore.getState().openSplit(W, tab2);
+    const before = usePaneStore.getState().getSplit(W).syncScroll;
+    await executeCommand("view.toggleSyncScroll", undefined, { windowLabel: W });
+    expect(usePaneStore.getState().getSplit(W).syncScroll).toBe(!before);
+  });
+
+  it("closePane collapses an open split back to single pane", async () => {
+    usePaneStore.getState().openSplit(W, tab2);
+    expect(usePaneStore.getState().getSplit(W).enabled).toBe(true);
+    await executeCommand("view.closePane", undefined, { windowLabel: W });
+    expect(usePaneStore.getState().getSplit(W).enabled).toBe(false);
+  });
+
+  it("closePane is a no-op when no split is open", async () => {
+    await expect(
+      executeCommand("view.closePane", undefined, { windowLabel: W }),
+    ).resolves.toBe(true);
+    expect(usePaneStore.getState().getSplit(W).enabled).toBe(false);
+  });
+
+  it("focusOtherPane flips the focused pane; no-op without a split", async () => {
+    usePaneStore.getState().openSplit(W, tab2); // focus = secondary
+    await executeCommand("view.focusOtherPane", undefined, { windowLabel: W });
+    expect(usePaneStore.getState().getSplit(W).focusedPane).toBe("primary");
+    await executeCommand("view.focusOtherPane", undefined, { windowLabel: W });
+    expect(usePaneStore.getState().getSplit(W).focusedPane).toBe("secondary");
+
+    usePaneStore.setState({ byWindow: {} });
+    await expect(
+      executeCommand("view.focusOtherPane", undefined, { windowLabel: W }),
+    ).resolves.toBe(true);
+  });
+});

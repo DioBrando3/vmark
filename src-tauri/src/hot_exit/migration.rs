@@ -11,11 +11,14 @@
 //!
 //! Migration Strategy:
 //! - Sessions at current version pass through unchanged
-//! - Older sessions are migrated step-by-step (v1 -> v2 -> v3 -> current)
+//! - Older sessions are migrated step-by-step (v1 -> v2 -> v3 -> v4 -> current)
 //! - Future sessions (higher version) cannot be migrated (fail gracefully)
 //! - Version 0 is invalid and rejected
 
 use super::session::{SessionData, SCHEMA_VERSION};
+
+#[path = "migration_v5.rs"]
+mod v5;
 
 /// Minimum supported version for migration
 const MIN_SUPPORTED_VERSION: u32 = 1;
@@ -68,7 +71,12 @@ fn migrate_to_next_version(session: SessionData) -> Result<SessionData, String> 
     match session.version {
         1 => migrate_v1_to_v2(session),
         2 => migrate_v2_to_v3(session),
-        _ => Err(format!("No migration path from version {}", session.version)),
+        3 => migrate_v3_to_v4(session),
+        4 => v5::migrate_v4_to_v5(session),
+        _ => Err(format!(
+            "No migration path from version {}",
+            session.version
+        )),
     }
 }
 
@@ -107,6 +115,16 @@ fn migrate_v2_to_v3(mut session: SessionData) -> Result<SessionData, String> {
     Ok(session)
 }
 
+/// Migrate v3 -> v4: Add workspace rail instance containers to WindowState.
+///
+/// The v4 fields are default-initialized by serde when deserializing v3
+/// sessions. This step deliberately bumps the version so compatibility is
+/// explicit on both the Rust and TypeScript migration paths.
+fn migrate_v3_to_v4(mut session: SessionData) -> Result<SessionData, String> {
+    session.version = 4;
+    Ok(session)
+}
+
 /// Check if session needs migration.
 pub fn needs_migration(session: &SessionData) -> bool {
     session.version < SCHEMA_VERSION
@@ -115,30 +133,11 @@ pub fn needs_migration(session: &SessionData) -> bool {
 // =============================================================================
 // Migration Functions
 // =============================================================================
-// Add migration functions here as we evolve the schema.
-// Each function should:
-// 1. Take a session at version N
-// 2. Return a session at version N+1
-// 3. Add default values for new fields
-// 4. Transform data structures as needed
-
-/*
-Example migration template for v1 -> v2 (when needed):
-
-fn migrate_v1_to_v2(mut session: SessionData) -> Result<SessionData, String> {
-    session.version = 2;
-
-    // Add new fields with defaults
-    // session.new_field = Some(default_value);
-
-    // Transform existing fields if needed
-    for window in &mut session.windows {
-        // window.new_window_field = false;
-    }
-
-    Ok(session)
-}
-*/
+// Add migration functions above as the schema evolves. Each `migrate_vN_to_vN+1`
+// takes a session at version N, returns one at version N+1, and is dispatched
+// from `migrate_to_next_version`. For authoring guidance (defaulting new fields
+// via serde, transforming data, keeping the Rust/TypeScript pair in sync) see
+// the module-level docs and `src/services/persistence/hotExit/schemaMigration.ts`.
 
 #[cfg(test)]
 mod tests {
@@ -204,3 +203,11 @@ mod tests {
 #[cfg(test)]
 #[path = "migration_v3_tests.rs"]
 mod v3_tests;
+
+#[cfg(test)]
+#[path = "migration_v4_tests.rs"]
+mod v4_tests;
+
+#[cfg(test)]
+#[path = "migration_v5_tests.rs"]
+mod v5_tests;

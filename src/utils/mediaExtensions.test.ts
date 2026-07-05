@@ -12,23 +12,54 @@ import { isImageFile } from "./imageUtils";
 import { getMediaType, hasVideoExtension } from "./mediaPathDetection";
 
 describe("mediaExtensions canonical sets", () => {
-  it("IMAGE is the agreed union (incl. previously-divergent avif/bmp/ico)", () => {
+  it("IMAGE is the agreed union, broadened for the media viewer", () => {
     expect([...IMAGE_EXTENSIONS]).toEqual([
       "png",
       "jpg",
       "jpeg",
+      "jfif",
       "gif",
       "webp",
       "svg",
       "bmp",
       "ico",
       "avif",
+      "apng",
+      "heic",
+      "heif",
+      "tiff",
+      "tif",
     ]);
   });
 
-  it("VIDEO and AUDIO sets are stable", () => {
-    expect([...VIDEO_EXTENSIONS]).toEqual(["mp4", "webm", "mov", "avi", "mkv", "m4v", "ogv"]);
-    expect([...AUDIO_EXTENSIONS]).toEqual(["mp3", "m4a", "ogg", "wav", "flac", "aac", "opus"]);
+  it("VIDEO and AUDIO sets cover the media viewer's formats", () => {
+    expect([...VIDEO_EXTENSIONS]).toEqual([
+      "mp4",
+      "webm",
+      "mov",
+      "avi",
+      "mkv",
+      "m4v",
+      "ogv",
+      "mpeg",
+      "mpg",
+      "wmv",
+      "flv",
+      "3gp",
+    ]);
+    expect([...AUDIO_EXTENSIONS]).toEqual([
+      "mp3",
+      "m4a",
+      "ogg",
+      "oga",
+      "wav",
+      "flac",
+      "aac",
+      "opus",
+      "weba",
+      "aiff",
+      "wma",
+    ]);
   });
 
   it("dotted form mirrors bare form", () => {
@@ -40,6 +71,11 @@ describe("mediaExtensions canonical sets", () => {
     expect(fileExtension("https://x.com/a/b.png?w=1#frag")).toBe("png");
     expect(fileExtension("/p/.gitignore")).toBe("");
     expect(fileExtension("noext")).toBe("");
+    // Local paths keep `?`/`#` as literal filename characters (only URLs have
+    // real query/fragment syntax) — a file named `photo#1.png` is a .png.
+    expect(fileExtension("/x/photo#1.png")).toBe("png");
+    expect(fileExtension("/x/clip?draft.mp4")).toBe("mp4");
+    expect(fileExtension("file:///x/a.png?cb=1")).toBe("png"); // file:// is a URL
   });
 });
 

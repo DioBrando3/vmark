@@ -17,13 +17,10 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { remove } from "@tauri-apps/plugin-fs";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useTabStore } from "@/stores/tabStore";
-import {
-  dispatchEditor,
-  getFormatById,
-} from "@/lib/formats/registry";
+import { dispatchEditor, getFormatById } from "@/lib/formats/registry";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { getDefaultSaveFolderWithFallback } from "@/hooks/useDefaultSaveFolder";
-import { flushActiveWysiwygNow } from "@/utils/wysiwygFlush";
+import { flushActiveWysiwygNow, flushAllWysiwygNow } from "@/utils/wysiwygFlush";
 import { withReentryGuard } from "@/utils/reentryGuard";
 import { saveToPath } from "@/services/persistence/saveToPath";
 import {
@@ -220,7 +217,7 @@ export async function handleSave(windowLabel: string): Promise<void> {
 
       if (postSaveAction.action === "open_workspace") {
         try {
-          await openWorkspaceWithConfig(postSaveAction.workspaceRoot);
+          await openWorkspaceWithConfig(postSaveAction.workspaceRoot, { windowLabel });
         } catch (error) {
           fileOpsError("Failed to open workspace after save:", error);
         }
@@ -326,8 +323,8 @@ export async function handleMoveTo(windowLabel: string): Promise<void> {
 export async function handleSaveAllQuit(windowLabel: string): Promise<void> {
   await withReentryGuard(windowLabel, "save-all-quit", async () => {
     try {
-      // Flush any pending editor changes before reading dirty state
-      flushActiveWysiwygNow();
+      // Flush ALL mounted editors before reading dirty state (Save All spans every tab, not just the focused one).
+      flushAllWysiwygNow();
 
       // Get all dirty tab IDs
       const dirtyTabIds = useDocumentStore.getState().getAllDirtyDocuments();
@@ -359,7 +356,7 @@ export async function handleSaveAllQuit(windowLabel: string): Promise<void> {
         contexts.push({
           windowLabel: ownership?.windowLabel ?? windowLabel,
           tabId,
-          title: ownership?.title ?? doc.filePath ?? "Untitled",
+          title: ownership?.title ?? doc.filePath ?? i18n.t("common:untitled"),
           filePath: doc.filePath,
           content: doc.content,
         });

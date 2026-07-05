@@ -1,7 +1,12 @@
 {
   "splitPane.editorLabel": "Editor for {{format}}",
+  "split.dividerLabel": "Resize split",
   "splitPane.resize": "Resize source / preview",
   "splitPane.validationDiagnostics": "Validation diagnostics",
+  "splitPane.viewMode.label": "View mode",
+  "splitPane.viewMode.source": "Source",
+  "splitPane.viewMode.split": "Split",
+  "splitPane.viewMode.preview": "Preview",
   "diagnostic.json/syntax": "JSON: {{message}}",
   "diagnostic.json/empty": "JSON: empty document is not valid",
   "diagnostic.yaml/syntax": "YAML: {{message}}",
@@ -258,5 +263,13 @@
   "tableMenu.alignAllRight": "Align All Right",
   "tableMenu.formatTable": "Format Table",
   "tableMenu.fitToWidth": "Fit to Width",
-  "tableMenu.naturalWidth": "Natural Width"
+  "tableMenu.naturalWidth": "Natural Width",
+  "terminal.processExited": "[Process exited with code {{code}}]",
+  "terminal.pressAnyKeyToRestart": "Press any key to restart...",
+  "terminal.failedToStart": "Failed to start shell: {{error}}",
+  "terminal.pressAnyKeyToRetry": "Press any key to retry...",
+  "terminal.restarting": "Restarting shell...",
+  "media.cannotPreview": "Can't preview this format",
+  "media.openExternally": "Open with default app",
+  "media.revealInFinder": "Reveal in Finder"
 }

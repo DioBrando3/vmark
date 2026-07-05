@@ -18,7 +18,7 @@
  */
 
 // Package version (injected at build time or read from package.json)
-const VERSION = '0.8.6';
+const VERSION = '0.8.26';
 
 /**
  * Handle --version flag.
@@ -398,7 +398,7 @@ function jsonSchemaPropertyToZod(prop: JsonSchemaProperty): ZodTypeAny {
           }
           schema = z.object(shape);
         } else {
-          schema = z.record(z.unknown());
+          schema = z.record(z.string(), z.unknown());
         }
         break;
       default:

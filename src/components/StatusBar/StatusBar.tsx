@@ -29,15 +29,17 @@
  * @coordinates-with Tabs/TabContextMenu.tsx — right-click menu for tabs
  * @module components/StatusBar/StatusBar
  */
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { useCallback, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { PanelLeft, Plus } from "lucide-react";
+import { PanelLeft } from "lucide-react";
 import { useUIStore } from "@/stores/uiStore";
 import { useWindowLabel, useIsDocumentWindow } from "@/contexts/WindowContext";
 import { useTabStore, type Tab as TabType } from "@/stores/tabStore";
-import { useDocumentStore } from "@/stores/documentStore";
+import { useDocumentStore, useLargeFileSessionStore } from "@/stores/documentStore";
 import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
+import { activateTabInFocusedPane } from "@/services/navigation/activateTabInFocusedPane";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
+import { toggleDocumentReadOnlyWithOwnership } from "@/services/workspaces/fileOwnership";
 import {
   useDocumentLastAutoSave,
   useDocumentIsMissing,
@@ -45,14 +47,14 @@ import {
 } from "@/hooks/useDocumentState";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useAiInvocationStore } from "@/stores/aiStore";
-import { formatRelativeTime } from "@/utils/dateUtils";
-import { Tab } from "@/components/Tabs/Tab";
 import { TabContextMenu, type ContextMenuPosition } from "@/components/Tabs/TabContextMenu";
 import { SourceModeUpgrade } from "./SourceModeUpgrade";
 import { FileLoadIndicator } from "./FileLoadIndicator";
+import { StatusBarTabStrip } from "./StatusBarTabStrip";
+import { useAutoSaveDisplay } from "./useAutoSaveDisplay";
 import { looksLikeWorkflowPath } from "@/lib/ghaWorkflow/detection";
-import { useLargeFileSessionStore } from "@/stores/documentStore";
-import { useShortcutsStore } from "@/stores/settingsStore";
+import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
+import { tooltipWithShortcut } from "@/utils/tooltipWithShortcut";
 import { useMcpServer } from "@/hooks/useMcpServer";
 import { useMcpClients } from "@/hooks/useMcpClients";
 import { openSettingsWindow } from "@/services/navigation/settingsWindow";
@@ -106,6 +108,7 @@ export function StatusBar() {
   const readOnlyShortcut = useShortcutsStore((state) => state.getShortcut("readOnly"));
   const terminalShortcut = useShortcutsStore((state) => state.getShortcut("toggleTerminal"));
   const saveShortcut = useShortcutsStore((state) => state.getShortcut("save"));
+  const sidebarShortcut = useShortcutsStore((state) => state.getShortcut("toggleSidebar"));
   const aiRunning = useAiInvocationStore((state) => state.isRunning);
   const aiElapsed = useAiInvocationStore((state) => state.elapsedSeconds);
   const aiError = useAiInvocationStore((state) => state.error);
@@ -147,36 +150,13 @@ export function StatusBar() {
     position: ContextMenuPosition;
     tab: TabType;
   } | null>(null);
-  const [showAutoSave, setShowAutoSave] = useState(false);
-  const [autoSaveTime, setAutoSaveTime] = useState("");
+  const { showAutoSave, autoSaveTime } = useAutoSaveDisplay(lastAutoSave);
   const quitMessage = useQuitFeedback();
 
   const tabDragScopeRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!lastAutoSave) return;
-
-    setAutoSaveTime(formatRelativeTime(lastAutoSave));
-    setShowAutoSave(true);
-
-    const updateInterval = setInterval(() => {
-      setAutoSaveTime(formatRelativeTime(lastAutoSave));
-    }, 10000);
-
-    const fadeTimeout = setTimeout(() => {
-      setShowAutoSave(false);
-    }, 5000);
-
-    return () => {
-      clearInterval(updateInterval);
-      clearTimeout(fadeTimeout);
-    };
-  }, [lastAutoSave]);
-
   const handleActivateTab = useCallback(
-    (tabId: string) => {
-      useTabStore.getState().setActiveTab(windowLabel, tabId);
-    },
+    (tabId: string) => activateTabInFocusedPane(windowLabel, tabId), // pane-aware (#1081)
     [windowLabel]
   );
 
@@ -247,62 +227,36 @@ export function StatusBar() {
                 type="button"
                 className="status-sidebar-toggle"
                 onClick={() => useUIStore.getState().toggleSidebar()}
-                // WI-2.3 — bind to live state instead of hardcoding `false`.
-                // The button currently only renders when sidebar is hidden,
-                // so this is structurally always false today; binding keeps
-                // it correct if rendering conditions ever change and signals
-                // to maintainers that the value is dynamic.
+                // WI-2.3 — bind aria-expanded to live state, not a literal
+                // (the button only renders while the sidebar is hidden).
                 aria-expanded={sidebarVisible}
-                aria-label={t("openSidebar")}
-                title={t("openSidebar")}
+                aria-label={tooltipWithShortcut(t("openSidebar"), formatKeyForDisplay(sidebarShortcut))}
+                title={tooltipWithShortcut(t("openSidebar"), formatKeyForDisplay(sidebarShortcut))}
               >
                 <PanelLeft size={14} />
               </button>
             )}
             <FileLoadIndicator />
             <SourceModeUpgrade />
-            {showNewTabButton && (
-              <button
-                type="button"
-                className="status-new-tab"
-                onClick={handleNewTab}
-                aria-label={t("newTab")}
-                title={t("newTabTitle")}
-              >
-                <Plus className="w-3 h-3" />
-              </button>
-            )}
-
-            {showTabs && (
-              <div className="status-tabs" role="tablist">
-                {tabs.map((tab, index) => {
-                  const dragHandlers = getTabDragHandlers(tab.id, tab.isPinned);
-                  const isBeingDragged = dragTabId === tab.id;
-                  const showDropBefore = isReordering && dropIndex === index && !isBeingDragged && !isReorderBlocked;
-
-                  return (
-                    <Tab
-                      key={tab.id}
-                      tab={tab}
-                      isActive={tab.id === activeTabId}
-                      isDragTarget={isDragging && isBeingDragged}
-                      isReordering={isReordering && isBeingDragged}
-                      isInvalidDrop={isDropInvalid && isBeingDragged}
-                      isSnapback={snapbackTabId === tab.id}
-                      showDropIndicator={showDropBefore}
-                      onActivate={handleActivateTab}
-                      onKeyDown={handleTabKeyDown}
-                      onClose={handleCloseTab}
-                      onContextMenu={handleContextMenu}
-                      onPointerDown={dragHandlers.onPointerDown}
-                    />
-                  );
-                })}
-                {isReordering && dropIndex !== null && dropIndex >= tabs.length && !isReorderBlocked && (
-                  <div className="tab-drop-indicator" />
-                )}
-              </div>
-            )}
+            <StatusBarTabStrip
+              tabs={tabs}
+              activeTabId={activeTabId}
+              showTabs={showTabs}
+              showNewTabButton={showNewTabButton}
+              isDragging={isDragging}
+              isReordering={isReordering}
+              dragTabId={dragTabId}
+              dropIndex={dropIndex}
+              isDropInvalid={isDropInvalid}
+              isReorderBlocked={isReorderBlocked}
+              snapbackTabId={snapbackTabId}
+              getTabDragHandlers={getTabDragHandlers}
+              onActivateTab={handleActivateTab}
+              onCloseTab={handleCloseTab}
+              onContextMenu={handleContextMenu}
+              onTabKeyDown={handleTabKeyDown}
+              onNewTab={handleNewTab}
+            />
 
             {quitMessage && (
               <span className="status-quit-message">
@@ -339,7 +293,7 @@ export function StatusBar() {
             readOnly={readOnly}
             readOnlyShortcut={readOnlyShortcut}
             onToggleReadOnly={() => {
-              if (activeTabId) useDocumentStore.getState().toggleReadOnly(activeTabId);
+              if (activeTabId) toggleDocumentReadOnlyWithOwnership(activeTabId);
             }}
           />
         </div>

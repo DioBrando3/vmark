@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import { expect, vi } from "vitest";
 import React from "react";
+import "./localStorageShim";
 
 // vitest-axe matchers (RW-15 / L11): register `toHaveNoViolations` globally so
 // a11y tests can assert `expect(await axe(el)).toHaveNoViolations()`.
@@ -13,6 +14,13 @@ expect.extend(axeMatchers);
 // gets it from vite.config.ts's `define`; vitest does not run the
 // frontend Vite config, so we stub a stable test value here.
 vi.stubGlobal("__VMARK_VERSION__", "0.0.0-test");
+
+// NOTE: deliberately NO global ResizeObserver shim. Defining it makes
+// mermaid/markmap render code proceed past the ResizeObserver check and then
+// hit the *next* missing jsdom API (SVGElement.getBBox), throwing async errors
+// that leak across tests far worse than the original fast-fail. Tests that
+// genuinely need ResizeObserver (xyflow in WorkflowCanvas) provide their own
+// local, callback-firing shim. matchMedia is likewise shimmed per-test.
 
 // ---------------------------------------------------------------------------
 // react-i18next global mock

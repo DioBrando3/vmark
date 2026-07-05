@@ -32,7 +32,8 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | `F4` | Sort Lines Ascending |
 | `Shift + F4` | Sort Lines Descending |
 | `F5` | Source Peek |
-| `F6` | Toggle Source Mode |
+| `F6` | Source view (Markdown: WYSIWYG ⇄ Source; other formats: Source ⇄ Split) |
+| `Shift + F6` | Split / Preview (Markdown: split view; other formats: Preview ⇄ Split) |
 | `F7` | Toggle Status Bar |
 | `F8` | Focus Mode |
 | `F9` | Typewriter Mode |
@@ -63,7 +64,6 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Wiki Link | `Alt + Mod + K` |
 | Bookmark Link | `Alt + Mod + B` |
 | Clear Formatting | `Mod + \` |
-| Cycle Emphasis | `Mod + Alt + E` _(none → italic → bold → bold+italic)_ |
 
 ## Block Formatting
 
@@ -73,14 +73,12 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Paragraph | `Mod + Shift + 0` |
 | Increase Heading Level | `Alt + Mod + ]` |
 | Decrease Heading Level | `Alt + Mod + [` |
-| Cycle Heading | `Mod + Alt + H` _(P → H1 → H2 → … → H6)_ |
 | Blockquote | `Alt + Mod + Q` |
 | Code Block | `Alt + Mod + C` |
 | Bullet List | `Alt + Mod + U` |
 | Ordered List | `Alt + Mod + O` |
 | Task List | `Alt + Mod + X` |
 | Toggle Task Checkbox | `Mod + Shift + Enter` _(context-aware; not customizable)_ |
-| Cycle List Type | _(customizable)_ |
 | Indent | `Mod + ]` |
 | Outdent | `Mod + [` |
 | Horizontal Line | `Alt + Mod + -` |
@@ -156,7 +154,9 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 
 | Action | Shortcut |
 |--------|----------|
-| Toggle Source Mode | `F6` |
+| Source view (Markdown ⇄ Source; other formats Source ⇄ Split) | `F6` |
+| Split / Preview (Markdown split; other formats Preview ⇄ Split) | `Shift + F6` |
+| Split Editor — Two Documents | `Alt + Mod + \` |
 | Toggle Status Bar | `F7` |
 | Focus Mode | `F8` |
 | Typewriter Mode | `F9` |
@@ -165,9 +165,11 @@ If you prefer keeping system functions on F-keys, you can customize VMark shortc
 | Zoom In | `Mod + =` |
 | Zoom Out | `Mod + -` |
 | Word Wrap | `Alt + Z` |
+| Toggle Sidebar | `Ctrl + Shift + 0` |
 | Toggle Outline | `Ctrl + Shift + 1` |
 | Toggle File Explorer | `Ctrl + Shift + 2` |
 | Toggle History | `Ctrl + Shift + 3` |
+| Toggle Knowledge Base | `Ctrl + Shift + 4` |
 | Toggle Line Numbers (code blocks) | `Alt + Mod + L` |
 | Toggle Terminal | Ctrl + `` ` `` |
 | Toggle Diagram Preview | `Alt + Mod + P` |
@@ -282,12 +284,6 @@ When cursor is inside a table:
 | Add Row Below | `Mod + Enter` |
 | Add Row Above | `Mod + Shift + Enter` |
 | Delete Row | `Mod + Backspace` |
-| Add Column Left | `Alt + Mod + Left` |
-| Add Column Right | `Alt + Mod + Right` |
-| Delete Column | `Alt + Mod + Backspace` |
-| Align Column Left | `Mod + Alt + Shift + L` |
-| Align Column Right | `Mod + Shift + R` |
-| Align Column Center | _(customizable)_ |
 | Format Table | `Alt + Mod + T` |
 | Exit Table | Arrow keys at table edge |
 

@@ -1,10 +1,11 @@
 /**
  * TerminalTabBar
  *
- * Purpose: Tab bar for the terminal panel. Renders vertically on the right
- * side (when panel is at the bottom) or horizontally at the bottom (when
- * panel is on the right). Shows numbered buttons for switching between
- * terminal sessions, plus create/close/restart controls.
+ * Purpose: Tab bar for the terminal panel. Renders vertically for a
+ * top/bottom panel (the panel's vertical axis) or horizontally for a
+ * left/right panel. Shows numbered buttons for switching between
+ * terminal sessions, plus create/close/restart and a swap control that flips
+ * the panel to the opposite side of its current axis.
  *
  * Key decisions:
  *   - Maximum 5 sessions enforced by disabling the "+" button.
@@ -20,9 +21,11 @@
  * @module components/Terminal/TerminalTabBar
  */
 import { useCallback } from "react";
-import { Plus, Trash2, RotateCcw } from "lucide-react";
+import { Plus, Trash2, RotateCcw, ArrowLeftRight, ArrowUpDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useUIStore, MAX_TERMINAL_SESSIONS } from "@/stores/uiStore";
+import { useUIStore, MAX_TERMINAL_SESSIONS, type EffectiveTerminalPosition } from "@/stores/uiStore";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { oppositeTerminalPosition, isHorizontalTerminalAxis } from "./useTerminalPosition";
 import "./TerminalTabBar.css";
 
 interface TerminalTabBarProps {
@@ -30,6 +33,8 @@ interface TerminalTabBarProps {
   onRestart: () => void;
   /** "vertical" = right-side column (default, for bottom panel), "horizontal" = bottom row (for right panel) */
   orientation?: "vertical" | "horizontal";
+  /** Current effective panel position — drives the swap control's direction. */
+  position: EffectiveTerminalPosition;
 }
 
 /** Extract display number from "Terminal N" labels, or first char for custom names.
@@ -42,7 +47,7 @@ function getTabDisplay(label: string): string {
 }
 
 /** Renders numbered buttons for switching between terminal sessions plus create/close/restart controls. */
-export function TerminalTabBar({ onClose, onRestart, orientation = "vertical" }: TerminalTabBarProps) {
+export function TerminalTabBar({ onClose, onRestart, orientation = "vertical", position }: TerminalTabBarProps) {
   const { t } = useTranslation("statusbar");
   const sessions = useUIStore((s) => s.terminal.sessions);
   const activeId = useUIStore((s) => s.terminal.activeSessionId);
@@ -50,6 +55,21 @@ export function TerminalTabBar({ onClose, onRestart, orientation = "vertical" }:
   const handleCreate = useCallback(() => {
     useUIStore.getState().terminalCreateSession();
   }, []);
+
+  // Swap flips the panel to the opposite end of its current axis. In auto
+  // mode it toggles auto ↔ auto-flipped so the smart aspect-based axis
+  // switching is preserved (it just lands on the other side); for an explicit
+  // position it flips to the opposite explicit side.
+  const handleSwap = useCallback(() => {
+    const settings = useSettingsStore.getState();
+    const setting = settings.terminal.position;
+    if (setting === "auto" || setting === "auto-flipped") {
+      settings.updateTerminalSetting("position", setting === "auto" ? "auto-flipped" : "auto");
+    } else {
+      settings.updateTerminalSetting("position", oppositeTerminalPosition(position));
+    }
+  }, [position]);
+  const SwapIcon = isHorizontalTerminalAxis(position) ? ArrowLeftRight : ArrowUpDown;
 
   const handleSwitch = useCallback((id: string) => {
     useUIStore.getState().terminalSetActiveSession(id);
@@ -89,6 +109,9 @@ export function TerminalTabBar({ onClose, onRestart, orientation = "vertical" }:
       </div>
 
       <div className="terminal-tab-bar-actions">
+        <button className="terminal-tab-bar-btn" onClick={handleSwap} title={t("terminal.swapPosition")} aria-label={t("terminal.swapPosition")}>
+          <SwapIcon size={12} />
+        </button>
         <button className="terminal-tab-bar-btn" onClick={onClose} title={t("terminal.closeSession")} aria-label={t("terminal.closeSession")}>
           <Trash2 size={12} />
         </button>

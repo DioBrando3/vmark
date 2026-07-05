@@ -1,16 +1,17 @@
 /**
  * TerminalPanel
  *
- * Purpose: Container for the integrated terminal — sits below or to the right
- * of the editor (based on effectiveTerminalPosition) with a drag-to-resize
- * handle. Hosts multiple terminal sessions via useTerminalSessions, a search
- * bar, a tab bar (vertical when bottom, horizontal when right), and a
- * context menu.
+ * Purpose: Container for the integrated terminal — sits on any side of the
+ * editor (top/bottom/left/right, based on effectiveTerminalPosition) with a
+ * drag-to-resize handle on the editor-adjacent edge. Hosts multiple terminal
+ * sessions via useTerminalSessions, a search
+ * bar, a tab bar (vertical for a top/bottom panel, horizontal for left/right),
+ * and a context menu.
  *
  * User interactions:
- *   - Drag the resize handle to adjust panel height (bottom) or width (right)
+ *   - Drag the resize handle to adjust panel height (top/bottom) or width (left/right)
  *   - Right-click for copy / paste / select-all / clear / reset-display menu
- *   - Use the tab bar to create/switch/close terminal sessions
+ *   - Use the tab bar to create/switch/close sessions and swap the panel side
  *   - Cmd+F within terminal opens the inline search bar
  *
  * Key decisions:
@@ -38,6 +39,7 @@ import { useTranslation } from "react-i18next";
 import { useUIStore } from "@/stores/uiStore";
 import { useTerminalSessions } from "./useTerminalSessions";
 import { useTerminalResize } from "./useTerminalResize";
+import { isHorizontalTerminalAxis } from "./useTerminalPosition";
 import { TerminalTabBar } from "./TerminalTabBar";
 import { TerminalContextMenu } from "./TerminalContextMenu";
 import { TerminalSearchBar } from "./TerminalSearchBar";
@@ -54,11 +56,11 @@ export function TerminalPanel() {
   const position = useUIStore((s) => s.effectiveTerminalPosition);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Defer xterm init until first show
+  // Defer xterm init until first show — latch once visible. Adjusted during
+  // render (a one-way latch that converges immediately) rather than in an effect,
+  // avoiding an extra render before xterm mounts (#1063).
   const [activated, setActivated] = useState(false);
-  useEffect(() => {
-    if (visible && !activated) setActivated(true);
-  }, [visible, activated]);
+  if (visible && !activated) setActivated(true);
 
   // Search bar state
   const [searchVisible, setSearchVisible] = useState(false);
@@ -92,9 +94,7 @@ export function TerminalPanel() {
   const [isResizing, setIsResizing] = useState(false);
   const resizeCleanupRef: MutableRefObject<(() => void) | null> = useRef(null);
 
-  const direction = position === "right" ? "horizontal" : "vertical";
-
-  const handleResize = useTerminalResize(direction, () => {
+  const handleResize = useTerminalResize(position, () => {
     if (!isResizing) setIsResizing(true);
     requestAnimationFrame(() => fit());
   });
@@ -158,28 +158,28 @@ export function TerminalPanel() {
   if (!activated) return null;
 
   const active = getActiveTerminal();
-  const isRight = position === "right";
+  const isHorizontal = isHorizontalTerminalAxis(position);
 
-  const panelStyle: React.CSSProperties = isRight
+  const panelStyle: React.CSSProperties = isHorizontal
     ? { width, display: visible ? "flex" : "none" }
     : { height, display: visible ? "flex" : "none" };
 
   const panelClassName = [
     "terminal-panel",
-    isRight ? "terminal-panel--right" : "terminal-panel--bottom",
+    `terminal-panel--${position}`,
     isResizing && "terminal-resizing",
   ]
     .filter(Boolean)
     .join(" ");
 
-  const handleClassName = isRight
+  const handleClassName = isHorizontal
     ? "terminal-resize-handle--vertical"
     : "terminal-resize-handle--horizontal";
 
   return (
     <div className={panelClassName} style={panelStyle} role="region" aria-label={t("terminal.ariaLabel")}>
       <div className={handleClassName} onMouseDown={handleResizeStart} />
-      <div className={`terminal-body ${isRight ? "terminal-body--column" : ""}`}>
+      <div className={`terminal-body ${isHorizontal ? "terminal-body--column" : ""}`}>
         <div className="terminal-sessions-container">
           <div
             ref={containerRef}
@@ -195,7 +195,12 @@ export function TerminalPanel() {
             />
           )}
         </div>
-        <TerminalTabBar onClose={handleClose} onRestart={handleRestart} orientation={isRight ? "horizontal" : "vertical"} />
+        <TerminalTabBar
+          onClose={handleClose}
+          onRestart={handleRestart}
+          orientation={isHorizontal ? "horizontal" : "vertical"}
+          position={position}
+        />
       </div>
       {contextMenu && active && (
         <TerminalContextMenu

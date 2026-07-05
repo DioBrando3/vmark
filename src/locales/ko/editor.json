@@ -270,8 +270,13 @@
   "lint.yamlParseError": "YAML: {{message}}",
   "lint.yamlParseWarning": "YAML: {{message}}",
   "splitPane.editorLabel": "Editor for {{format}}",
+  "split.dividerLabel": "분할 크기 조정",
   "splitPane.resize": "Resize source / preview",
   "splitPane.validationDiagnostics": "Validation diagnostics",
+  "splitPane.viewMode.label": "보기 모드",
+  "splitPane.viewMode.source": "소스",
+  "splitPane.viewMode.split": "분할",
+  "splitPane.viewMode.preview": "미리 보기",
   "diagnostic.json/syntax": "JSON: {{message}}",
   "diagnostic.json/empty": "JSON: empty document is not valid",
   "diagnostic.mermaid/missing-diagram-type": "Mermaid: missing diagram type on the first non-comment line",
@@ -317,5 +322,13 @@
   "tableMenu.alignAllRight": "모두 오른쪽 정렬",
   "tableMenu.formatTable": "표 서식 정리",
   "tableMenu.fitToWidth": "너비에 맞춤",
-  "tableMenu.naturalWidth": "원래 너비"
+  "tableMenu.naturalWidth": "원래 너비",
+  "terminal.processExited": "[프로세스가 코드 {{code}}(으)로 종료됨]",
+  "terminal.pressAnyKeyToRestart": "아무 키나 눌러 다시 시작...",
+  "terminal.failedToStart": "셸을 시작하지 못했습니다: {{error}}",
+  "terminal.pressAnyKeyToRetry": "아무 키나 눌러 다시 시도...",
+  "terminal.restarting": "셸을 다시 시작하는 중...",
+  "media.cannotPreview": "이 형식은 미리 볼 수 없습니다",
+  "media.openExternally": "기본 앱으로 열기",
+  "media.revealInFinder": "Finder에서 보기"
 }

@@ -1,6 +1,5 @@
 {
   "openSidebar": "Seitenleiste öffnen",
-  "newTab": "Neuer Tab",
   "newTabTitle": "Neuer Tab",
   "autoSavePaused": "Automatisches Speichern pausiert",
   "autoSavePausedTitle": "Automatisches Speichern pausiert: Datei wurde vom Datenträger gelöscht. Manuell speichern mit {{shortcut}}.",
@@ -50,6 +49,7 @@
   "pressAgainToQuit": "{{key}} erneut drücken zum Beenden",
   "updateChecking": "Auf Updates prüfen...",
   "updateDownloading": "Update wird heruntergeladen...",
+  "updateInstalling": "Update wird installiert...",
   "updateAvailable": "Update verfügbar — klicken zum Anzeigen",
   "updateAvailableVersion": "Update verfügbar: v{{version}} — klicken zum Anzeigen",
   "updateDownloadingPercent": "Herunterladen: {{percent}}%",
@@ -66,6 +66,8 @@
   "terminal.maxSessions": "Maximal 5 Sitzungen",
   "terminal.closeSession": "Schließen",
   "terminal.restartSession": "Neu starten",
+  "terminal.swapPosition": "Position tauschen",
+  "terminal.notify.attention": "{{name}} braucht Aufmerksamkeit",
   "terminal.contextMenu.copy": "Kopieren",
   "terminal.contextMenu.copyUnwrapped": "Ohne Umbruch kopieren",
   "terminal.contextMenu.paste": "Einfügen",

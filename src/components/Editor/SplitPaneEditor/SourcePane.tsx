@@ -11,23 +11,15 @@ import {
   Compartment,
   EditorState,
   Transaction,
-  type Extension,
 } from "@codemirror/state";
-import { EditorView, keymap, lineNumbers } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
-import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
-import { linter, type Diagnostic } from "@codemirror/lint";
-import { syntaxHighlighting } from "@codemirror/language";
+import { EditorView, lineNumbers } from "@codemirror/view";
 import { useDocumentStore } from "@/stores/documentStore";
 import { useUIStore } from "@/stores/uiStore";
 import { detectSourceLanguage } from "@/lib/formats/sourceLanguage";
-// Reuse the markdown Source-mode theme + syntax palette so non-markdown
-// files (txt/json/yaml/code viewers) render with the same caret, selection,
-// mono font, and GitHub-style token colors instead of raw CodeMirror
-// defaults. The CSS import is a side-effect that ships the `.cm-hl-*`
-// color rules (scoped to `.source-editor`/`.source-pane`).
-import { sourceEditorTheme, codeHighlightStyle } from "@/plugins/codemirror/theme";
+// Side-effect import: ships the `.cm-hl-*` color rules (scoped to
+// `.source-editor`/`.source-pane`) used by the shared source theme.
 import "@/plugins/codemirror/source-syntax.css";
+import { buildSourcePaneExtensions } from "./sourcePaneExtensions";
 import type {
   FormatConfig,
   ValidationDiagnostic,
@@ -48,43 +40,6 @@ export interface SourcePaneProps {
   editingEnabled?: boolean;
 }
 
-function diagnosticToCodemirror(
-  doc: {
-    line: (n: number) => { from: number; to: number; length: number };
-    lines: number;
-  },
-  d: ValidationDiagnostic,
-): Diagnostic {
-  // Clamp line/endLine to the doc's real line range so an out-of-range
-  // diagnostic (parser reports past EOF; doc shrunk between validate and
-  // render) doesn't throw inside doc.line() and break linting.
-  const totalLines = Math.max(1, doc.lines);
-  const startLine = Math.min(Math.max(1, d.line), totalLines);
-  const lineInfo = doc.line(startLine);
-  const from = Math.min(
-    lineInfo.from + Math.max(0, d.column - 1),
-    lineInfo.to,
-  );
-  let to: number;
-  if (d.endLine !== undefined && d.endColumn !== undefined) {
-    const endLine = Math.min(Math.max(1, d.endLine), totalLines);
-    const endLineInfo = doc.line(endLine);
-    to = Math.min(
-      endLineInfo.from + Math.max(0, d.endColumn - 1),
-      endLineInfo.to,
-    );
-  } else {
-    to = Math.min(from + 1, lineInfo.to);
-  }
-  return {
-    from,
-    to: to <= from ? Math.min(from + 1, lineInfo.to) : to,
-    severity: d.severity,
-    message: d.message,
-    source: d.ruleId,
-  };
-}
-
 export function SourcePane({
   tabId,
   formatId,
@@ -101,10 +56,15 @@ export function SourcePane({
   // tearing down the editor and losing undo history. Mirrors the markdown
   // Source editor (lineNumbersCompartment in sourceEditorExtensions.ts).
   const lineNumberCompartmentRef = useRef(new Compartment());
+  // Line wrapping gets its own compartment too, so the Word Wrap toggle
+  // (uiStore.wordWrap) reconfigures it in place rather than being hardcoded
+  // on — the #1070 Split-View bug where the toggle was silently ignored.
+  const lineWrapCompartmentRef = useRef(new Compartment());
   // Subscribe so a toggle re-renders this component and the effect below
   // reconfigures the gutter compartment (which alone controls visibility —
   // no CSS class is needed since the extension is added/removed in place).
   const showLineNumbers = useUIStore((state) => state.showLineNumbers);
+  const wordWrap = useUIStore((state) => state.wordWrap);
   // Track the doc string we last *wrote* via a transaction so we can
   // skip echoing the store update back into the view (which would
   // collapse the cursor and reset undo position).
@@ -116,7 +76,10 @@ export function SourcePane({
   // would tear down and rebuild the CodeMirror view, blowing away undo
   // history and the user's selection. (Audit finding H3.)
   const onDiagnosticsRef = useRef(onDiagnostics);
-  onDiagnosticsRef.current = onDiagnostics;
+  // Synced after commit (read only from the CodeMirror diagnostics callback). #1063
+  useEffect(() => {
+    onDiagnosticsRef.current = onDiagnostics;
+  });
 
   // Stable jump-to-position handle, safe to re-emit whenever the parent's
   // callback prop changes identity. Lives outside the mount effect so a
@@ -141,17 +104,14 @@ export function SourcePane({
     onJumpHandleReady?.(jumpTo);
   }, [onJumpHandleReady, jumpTo]);
 
-  /* v8 ignore next 4 -- @preserve documentStore selector path; smoke-tested via mocked store */
-  const storeContent = useDocumentStore(
-    (state) => state.documents?.[tabId]?.content ?? "",
-  );
-  // WI-4.3 — readOnly defers to the per-tab editing override when set.
-  const readOnly = formatConfig.adapters.readOnlyDefault && !editingEnabled;
+  /* v8 ignore next -- @preserve documentStore selector path; smoke-tested via mocked store */
+  const docSnapshot = useDocumentStore((state) => state.documents?.[tabId] ?? null);
+  const storeContent = docSnapshot?.content ?? "";
+  const readOnly =
+    (docSnapshot?.readOnly ?? false) ||
+    (formatConfig.adapters.readOnlyDefault && !editingEnabled);
   const validator = formatConfig.validator;
-  /* v8 ignore next 3 -- @preserve documentStore selector path; smoke-tested via mocked store */
-  const filePath = useDocumentStore(
-    (state) => state.documents?.[tabId]?.filePath ?? null,
-  );
+  const filePath = docSnapshot?.filePath ?? null;
   // A format may ship its own language pack (json/yaml/code viewers). When
   // it doesn't (plain text), fall back to filename-based highlighting so a
   // `.env` / `Dockerfile` / `.sh` opened as plain text still gets colors.
@@ -182,47 +142,21 @@ export function SourcePane({
       useDocumentStore.getState().setContent(tabId, next);
     });
 
-    // WI-2.4 — wire format.validator into CodeMirror's lint gutter so
-    // parse errors (json/yaml/toml) surface as gutter markers, and
-    // hoist diagnostics via onDiagnostics so the preview pane can
-    // surface "fix syntax errors at line:column".
-    const validationLinter = validator
-      ? linter((view) => {
-          const text = view.state.doc.toString();
-          const path =
-            useDocumentStore.getState().documents?.[tabId]?.filePath ??
-            undefined;
-          const diagnostics = validator(text, path ?? undefined);
-          onDiagnosticsRef.current?.(diagnostics);
-          return diagnostics.map((d) =>
-            diagnosticToCodemirror(view.state.doc, d),
-          );
-        })
-      : null;
-
-    const baseExtensions: Extension[] = [
-      // Gutter is compartmentalized so the line-numbers toggle reconfigures
-      // it without remounting. Initial state read from the store at mount.
-      lineNumberCompartmentRef.current.of(
-        useUIStore.getState().showLineNumbers ? lineNumbers() : [],
-      ),
-      history(),
-      highlightSelectionMatches(),
-      keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
-      EditorView.lineWrapping,
-      // Same caret/selection/mono-font theme + GitHub syntax palette the
-      // markdown Source editor uses, so non-markdown files are themed
-      // instead of raw CodeMirror. fallback:true colors tokens even when a
-      // language pack hasn't resolved yet.
-      syntaxHighlighting(codeHighlightStyle, { fallback: true }),
-      sourceEditorTheme,
-      // Empty initial language — loadLanguage promise reconfigures
-      // this compartment when ready.
-      languageCompartmentRef.current.of([]),
+    // WI-2.4 — the validator-backed lint gutter and the rest of the base
+    // extension list are assembled by the pure builder; the linter hoists
+    // diagnostics via onDiagnostics so the preview pane can surface
+    // "fix syntax errors at line:column". Reading the callback through the ref
+    // keeps a non-memoized parent handler from forcing a remount.
+    const baseExtensions = buildSourcePaneExtensions({
+      tabId,
+      readOnly,
+      validator,
+      lineNumberCompartment: lineNumberCompartmentRef.current,
+      lineWrapCompartment: lineWrapCompartmentRef.current,
+      languageCompartment: languageCompartmentRef.current,
       persistOnUpdate,
-    ];
-    if (validationLinter) baseExtensions.push(validationLinter);
-    if (readOnly) baseExtensions.push(EditorState.readOnly.of(true));
+      onDiagnostics: (diagnostics) => onDiagnosticsRef.current?.(diagnostics),
+    });
 
     const initial = useDocumentStore.getState().documents?.[tabId]?.content ?? "";
     lastSyncedRef.current = initial;
@@ -278,6 +212,20 @@ export function SourcePane({
       ),
     });
   }, [showLineNumbers]);
+
+  // Reconfigure line wrapping when the Word Wrap toggle flips. Kept out of the
+  // mount effect for the same reason as line numbers — toggling must not tear
+  // down the view. Fixes #1070: Split View previously ignored Word Wrap.
+  useEffect(() => {
+    const view = viewRef.current;
+    /* v8 ignore next -- @preserve unmounted-view fallback */
+    if (!view) return;
+    view.dispatch({
+      effects: lineWrapCompartmentRef.current.reconfigure(
+        wordWrap ? EditorView.lineWrapping : [],
+      ),
+    });
+  }, [wordWrap]);
 
   // Re-sync the editor when the store content diverges from the last
   // value we authored. Handles file-load races (initDocument arriving

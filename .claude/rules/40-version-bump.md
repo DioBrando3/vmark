@@ -1,6 +1,9 @@
 # 40 - Version Bump Procedure
 
-When bumping the version number, **all five files must be updated together**.
+When bumping the version number, **all five source files must be updated
+together**, and the derived `src-tauri/Cargo.lock` must be regenerated and
+committed with them — a stale lockfile leaves `origin/main` dirty and breaks
+any `cargo build --locked` / `--frozen` (release + CI).
 
 ## Files to Update
 
@@ -43,6 +46,11 @@ When bumping the version number, **all five files must be updated together**.
    # MCP server files
    sed -i '' 's/"version": "[^"]*"/"version": "'$VERSION'"/' vmark-mcp-server/package.json
    sed -i '' 's/const VERSION = "[^"]*"/const VERSION = "'$VERSION'"/' vmark-mcp-server/src/cli.ts
+
+   # Sync the derived lockfile so src-tauri/Cargo.lock's `vmark` entry matches
+   # Cargo.toml. Locks 0 other packages; any cargo invocation against the
+   # manifest (e.g. `cargo check`) syncs it too.
+   cargo update -p vmark --manifest-path src-tauri/Cargo.toml
    ```
 
 2. **Verify all match**:
@@ -55,6 +63,7 @@ When bumping the version number, **all five files must be updated together**.
 3. **Commit together**:
    ```bash
    git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml \
+           src-tauri/Cargo.lock \
            vmark-mcp-server/package.json vmark-mcp-server/src/cli.ts
    git commit -m "chore: bump version to 0.4.0"
    ```
@@ -72,9 +81,21 @@ When bumping the version number, **all five files must be updated together**.
 
    Always push the **specific tag only**: `git push origin v0.4.0`
 
+   **Pushing `main`/`v*` triggers the `pre-push` gate** (`pnpm check:all`, ~3 min)
+   while git holds the SSH connection open. The `prepare` script
+   (`scripts/setup-local-git.mjs`) sets an SSH keepalive (`core.sshCommand`) so
+   the idle connection survives the gate. If a push ever dies with **SIGPIPE
+   (exit 141)** right after "quality gate green — push allowed", the keepalive is
+   missing: run `node scripts/setup-local-git.mjs`, or push once with
+   `GIT_SSH_COMMAND='ssh -o ServerAliveInterval=20' git push origin v0.4.0`.
+   The gate is green — this is a transport timeout, not a quality failure, so
+   `--no-verify` is **not** the fix (and is forbidden without authorization).
+
 ## Common Mistakes
 
 - Forgetting Cargo.toml (causes dual version display in About dialog)
+- Forgetting to regenerate `src-tauri/Cargo.lock` (leaves `origin/main` dirty;
+  `cargo build --locked`/`--frozen` then fails)
 - Forgetting MCP server files (causes version mismatch in health check)
 - Tagging before all files are updated
 - Using different versions across files

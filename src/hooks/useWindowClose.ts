@@ -10,7 +10,8 @@
  *   persist workspace session → allow close or cancel
  *
  * Pipeline (menu close): Cmd+W menu accelerator → menu:close event →
- *   closeTabWithDirtyCheck → closeWindowIfEmpty (closes window if last)
+ *   closeTabWithDirtyCheck (active tab). When the window is already empty
+ *   (Welcome screen), Cmd+W closes the window itself via handleCloseRequest.
  *
  * Key decisions:
  *   - Prevents default close to run async save prompts first
@@ -25,6 +26,7 @@
  * @coordinates-with closeSave.ts — promptSaveForMultipleDocuments dialog
  * @coordinates-with useTabOperations.ts — closeTabWithDirtyCheck for menu:close
  * @coordinates-with workspaceSession.ts — persists last open tabs
+ * @coordinates-with paneStore.ts — removeWindow clears per-window split state (#1081)
  * @module hooks/useWindowClose
  */
 
@@ -36,6 +38,7 @@ import i18n from "@/i18n";
 import { useWindowLabel } from "../contexts/WindowContext";
 import { useDocumentStore } from "../stores/documentStore";
 import { useTabStore } from "../stores/tabStore";
+import { usePaneStore } from "../stores/paneStore";
 import {
   promptSaveForDirtyDocument,
   promptSaveForMultipleDocuments,
@@ -134,6 +137,7 @@ export function useWindowClose() {
         tabs.forEach((tab) => useDocumentStore.getState().removeDocument(tab.id));
         await persistWorkspaceSession(windowLabel);
         useTabStore.getState().removeWindow(windowLabel);
+      usePaneStore.getState().removeWindow(windowLabel); // #1081 M3
         closeLog(windowLabel, "invoking close_window with label:", windowLabel);
         await invoke("close_window", { label: windowLabel });
         closeLog(windowLabel, "close_window returned");
@@ -173,6 +177,7 @@ export function useWindowClose() {
       tabs.forEach((tab) => useDocumentStore.getState().removeDocument(tab.id));
       await persistWorkspaceSession(windowLabel);
       useTabStore.getState().removeWindow(windowLabel);
+      usePaneStore.getState().removeWindow(windowLabel); // #1081 M3
       await invoke("close_window", { label: windowLabel });
       return true;
     } catch (error) {
@@ -191,8 +196,10 @@ export function useWindowClose() {
       closeLog(windowLabel, "setting up event listeners");
 
       // Listen to menu:close (Cmd+W menu accelerator).
-      // Close the active tab. closeWindowIfEmpty (inside closeTabWithDirtyCheck)
-      // closes the window when the last tab is closed (macOS standard behavior).
+      // Close the active tab. Closing the last tab no longer closes the window —
+      // it stays open on the Welcome screen (empty-workspace window). To keep a
+      // keyboard path for closing that persistent empty window, Cmd+W with no
+      // active tab falls through to handleCloseRequest (matches VSCode).
       // useTabShortcuts also handles Cmd+W via keydown; the second invocation
       // is a safe no-op because the tab is already removed by the time it runs.
       const unlistenMenu = await currentWindow.listen<string>("menu:close", async (event) => {
@@ -206,6 +213,9 @@ export function useWindowClose() {
             } catch (error) {
               windowCloseError("menu:close tab close failed:", error);
             }
+          } else {
+            // Empty window (Welcome screen): close the window itself.
+            void handleCloseRequest();
           }
         }
       });

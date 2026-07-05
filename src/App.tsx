@@ -1,24 +1,29 @@
-import { Component, lazy, Suspense, type ReactNode } from "react";
+import { Component, lazy, Suspense, type CSSProperties, type ReactNode } from "react";
 import { FeatureErrorBoundary } from "@/components/FeatureErrorBoundary";
 import { useTranslation, withTranslation, type WithTranslation } from "react-i18next";
 import { Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import { CheckCircle, XCircle, Info, AlertTriangle, Loader2 } from "lucide-react";
-import { Editor } from "@/components/Editor";
+import { DocumentSplitContainer } from "@/components/Editor";
+import { useUnifiedMenuCommands } from "@/hooks/useUnifiedMenuCommands";
 import { Sidebar } from "@/components/Sidebar";
 import { SidebarResizeHandle } from "@/components/Sidebar/SidebarResizeHandle";
-import { StatusBar } from "@/components/StatusBar";
-import { FindBar } from "@/components/FindBar";
+import { WorkspaceRail, WORKSPACE_RAIL_WIDTH } from "@/components/WorkspaceRail";
+import { BottomBar } from "@/components/BottomBar/BottomBar";
 import { TitleBar } from "@/components/TitleBar";
-import { UniversalToolbar } from "@/components/Editor/UniversalToolbar";
 import { AppShell, EditorArea } from "@/shell";
 import { GeniePicker } from "@/components/GeniePicker/GeniePicker";
 import { ApprovalDialog } from "@/components/WorkflowApproval/ApprovalDialog";
 import { QuickOpen } from "@/components/QuickOpen/QuickOpen";
 import { ContentSearch } from "@/components/ContentSearch/ContentSearch";
+import { QuickLookOverlay } from "@/components/QuickLook/QuickLookOverlay";
+import { KnowledgeBaseOverlay } from "@/components/KnowledgeBasePanel/KnowledgeBaseOverlay";
+import { WindowStatusOverlay } from "@/components/WindowStatusPanel/WindowStatusOverlay";
+import { useWindowStatus } from "@/hooks/useWindowStatus";
 import { CommandPalette } from "@/components/CommandPalette";
 import { WindowProvider, useIsDocumentWindow, useWindowLabel } from "@/contexts/WindowContext";
 import { useUIStore } from "@/stores/uiStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { useTheme } from "@/hooks/useTheme";
 import { useTerminalPosition } from "@/components/Terminal/useTerminalPosition";
 import { useTabModeSync } from "@/hooks/useTabModeSync";
@@ -65,10 +70,10 @@ class ErrorBoundaryInner extends Component<
       const { t } = this.props;
       return (
         <div style={{ padding: 40, fontFamily: "system-ui, sans-serif" }}>
-          <h1 style={{ color: "#dc2626", marginBottom: 16 }}>{t("errorBoundary.title")}</h1>
+          <h1 style={{ color: cssVars.color.semantic.error, marginBottom: 16 }}>{t("errorBoundary.title")}</h1>
           <pre style={{
             padding: 16,
-            background: "#fef2f2",
+            background: cssVars.color.semantic.errorBg,
             borderRadius: 8,
             overflow: "auto",
             fontSize: 14,
@@ -133,6 +138,7 @@ function DropOverlay() {
 }
 
 function MainLayout() {
+  const { t } = useTranslation("dialog");
   // Window context + store selectors. State reads only, not lifecycle hooks.
   const isDocumentWindow = useIsDocumentWindow();
   const windowLabel = useWindowLabel();
@@ -142,6 +148,9 @@ function MainLayout() {
   const sidebarWidth = useUIStore((state) => state.sidebarWidth);
   const findBarOpen = useUIStore((state) => state.search.isOpen);
   const terminalPosition = useUIStore((state) => state.effectiveTerminalPosition);
+  const workspaceRailMode = useSettingsStore((state) => state.general.workspaceRailMode);
+  const showWorkspaceRail = isDocumentWindow && workspaceRailMode;
+  const sideWidth = (showWorkspaceRail ? WORKSPACE_RAIL_WIDTH : 0) + (sidebarVisible ? sidebarWidth : 0);
 
   // T03 lifecycle composites — every per-document/per-window hook now
   // lives in src/hooks/lifecycle/. Adding a shortcut or sync hook
@@ -151,6 +160,10 @@ function MainLayout() {
   useTheme();
   useTerminalPosition();
   useTabModeSync();
+  useWindowStatus();
+  // Mounted once per window (lifted out of Editor so a two-pane split doesn't
+  // double-mount it, #1081); targets the focused pane via pane-aware hooks.
+  useUnifiedMenuCommands();
 
   const className = [
     focusModeEnabled && "focus-mode",
@@ -165,30 +178,36 @@ function MainLayout() {
       className={className}
       chrome={<TitleBar />}
       sidebar={
-        sidebarVisible ? (
-          <>
-            <Sidebar />
-            <SidebarResizeHandle width={sidebarWidth} />
-          </>
+        showWorkspaceRail || sidebarVisible ? (
+          <div className="app-sidebar-stack">
+            {showWorkspaceRail && (
+              <div
+                className="app-sidebar-stack__rail"
+                style={{ "--workspace-rail-width": `${WORKSPACE_RAIL_WIDTH}px` } as CSSProperties}
+              >
+                <WorkspaceRail windowLabel={windowLabel} />
+              </div>
+            )}
+            {sidebarVisible && (
+              <div className="app-sidebar-stack__sidebar" style={{ width: sidebarWidth }}>
+                <Sidebar />
+                <SidebarResizeHandle width={sidebarWidth} />
+              </div>
+            )}
+          </div>
         ) : null
       }
-      sidebarWidth={sidebarWidth}
+      sidebarWidth={sideWidth}
       primary={
         <EditorArea
           editor={
-            <FeatureErrorBoundary feature="Editor">
-              <Editor />
+            <FeatureErrorBoundary feature={t("errorBoundary.feature.editor")}>
+              <DocumentSplitContainer />
             </FeatureErrorBoundary>
           }
-          bottomBar={
-            <>
-              <StatusBar />
-              <UniversalToolbar />
-              <FindBar />
-            </>
-          }
+          bottomBar={<BottomBar />}
           panel={
-            <FeatureErrorBoundary feature="Terminal">
+            <FeatureErrorBoundary feature={t("errorBoundary.feature.terminal")}>
               <Suspense fallback={null}>
                 <TerminalPanel />
               </Suspense>
@@ -205,6 +224,9 @@ function MainLayout() {
           <DropOverlay />
           <QuickOpen windowLabel={windowLabel} />
           <ContentSearch windowLabel={windowLabel} />
+          <QuickLookOverlay />
+          <KnowledgeBaseOverlay />
+          <WindowStatusOverlay />
           <GeniePicker />
           <ApprovalDialog />
           <CommandPalette />
@@ -214,33 +236,40 @@ function MainLayout() {
   );
 }
 
+function AppRoutes() {
+  const { t } = useTranslation("dialog");
+  return (
+    <Routes>
+      <Route path="/" element={<MainLayout />} />
+      <Route
+        path="/settings"
+        element={
+          <FeatureErrorBoundary feature={t("errorBoundary.feature.settings")}>
+            <Suspense fallback={null}>
+              <SettingsPage />
+            </Suspense>
+          </FeatureErrorBoundary>
+        }
+      />
+      <Route
+        path="/pdf-export"
+        element={
+          <FeatureErrorBoundary feature={t("errorBoundary.feature.pdfExport")}>
+            <Suspense fallback={null}>
+              <PdfExportPage />
+            </Suspense>
+          </FeatureErrorBoundary>
+        }
+      />
+    </Routes>
+  );
+}
+
 function App() {
   return (
     <ErrorBoundary>
       <WindowProvider>
-        <Routes>
-          <Route path="/" element={<MainLayout />} />
-          <Route
-            path="/settings"
-            element={
-              <FeatureErrorBoundary feature="Settings">
-                <Suspense fallback={null}>
-                  <SettingsPage />
-                </Suspense>
-              </FeatureErrorBoundary>
-            }
-          />
-          <Route
-            path="/pdf-export"
-            element={
-              <FeatureErrorBoundary feature="PDF Export">
-                <Suspense fallback={null}>
-                  <PdfExportPage />
-                </Suspense>
-              </FeatureErrorBoundary>
-            }
-          />
-        </Routes>
+        <AppRoutes />
         <Toaster
           position="top-center"
           closeButton

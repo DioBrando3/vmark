@@ -1,6 +1,5 @@
 {
   "openSidebar": "사이드바 열기",
-  "newTab": "새 탭",
   "newTabTitle": "새 탭",
   "autoSavePaused": "자동 저장 일시 중지",
   "autoSavePausedTitle": "자동 저장 일시 중지: 파일이 디스크에서 삭제되었습니다. {{shortcut}}로 수동 저장하세요.",
@@ -50,6 +49,7 @@
   "pressAgainToQuit": "{{key}}를 다시 눌러 종료",
   "updateChecking": "업데이트 확인 중...",
   "updateDownloading": "업데이트 다운로드 중...",
+  "updateInstalling": "업데이트 설치 중...",
   "updateAvailable": "업데이트 가능 — 클릭하여 확인",
   "updateAvailableVersion": "업데이트 가능: v{{version}} — 클릭하여 확인",
   "updateDownloadingPercent": "다운로드 중: {{percent}}%",
@@ -66,6 +66,8 @@
   "terminal.maxSessions": "최대 5개 세션",
   "terminal.closeSession": "닫기",
   "terminal.restartSession": "재시작",
+  "terminal.swapPosition": "위치 바꾸기",
+  "terminal.notify.attention": "{{name}}에 주의가 필요합니다",
   "terminal.contextMenu.copy": "복사",
   "terminal.contextMenu.copyUnwrapped": "줄바꿈 해제하고 복사",
   "terminal.contextMenu.paste": "붙여넣기",

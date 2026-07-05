@@ -36,6 +36,60 @@ describe("sanitizePersistedSettings (T4 persist-boundary guard)", () => {
     expect(out).toEqual({ unknownKey: "ok" });
   });
 
+  it("drops a primitive leaf whose type mismatches the default", () => {
+    const leafDefaults = {
+      appearance: { fontSize: 18, theme: "paper", autoHideStatusBar: false },
+    };
+    const out = sanitizePersistedSettings(
+      {
+        appearance: {
+          fontSize: "999", // string where number expected → dropped
+          theme: 7, // number where string expected → dropped
+          autoHideStatusBar: "yes", // string where boolean expected → dropped
+        },
+      },
+      leafDefaults,
+    );
+    expect(out).toEqual({ appearance: {} });
+  });
+
+  it("keeps primitive leaves whose type matches the default", () => {
+    const leafDefaults = { appearance: { fontSize: 18, theme: "paper" } };
+    const out = sanitizePersistedSettings(
+      { appearance: { fontSize: 22, theme: "night" } },
+      leafDefaults,
+    );
+    expect(out).toEqual({ appearance: { fontSize: 22, theme: "night" } });
+  });
+
+  it("drops a non-array value where the default is an array", () => {
+    const arrayDefaults = { advanced: { customLinkProtocols: ["obsidian"] } };
+    const out = sanitizePersistedSettings(
+      { advanced: { customLinkProtocols: "obsidian" } },
+      arrayDefaults,
+    );
+    expect(out).toEqual({ advanced: {} });
+  });
+
+  it("keeps a non-null value where the default is null (nullable field)", () => {
+    // lastCheckTimestamp/skipVersion default to null but persist a real value.
+    const nullableDefaults = { update: { lastCheckTimestamp: null, skipVersion: null } };
+    const out = sanitizePersistedSettings(
+      { update: { lastCheckTimestamp: 123, skipVersion: "1.0.0" } },
+      nullableDefaults,
+    );
+    expect(out).toEqual({ update: { lastCheckTimestamp: 123, skipVersion: "1.0.0" } });
+  });
+
+  it("drops a non-finite number where a finite number is expected", () => {
+    const numericDefaults = { appearance: { fontSize: 18 } };
+    const out = sanitizePersistedSettings(
+      { appearance: { fontSize: Number.NaN } },
+      numericDefaults,
+    );
+    expect(out).toEqual({ appearance: {} });
+  });
+
   it("recurses into nested branches and drops nested shape mismatches", () => {
     const nestedDefaults = {
       advanced: { mcpServer: { port: 9223 }, customLinkProtocols: [] },
@@ -144,6 +198,43 @@ describe("settingsStore merge migration", () => {
       expect(result.appearance.blockSpacing).toBe(1.5);
     }
   });
+
+  it("migrates legacy advanced workspace rail preference to general settings", () => {
+    const storeApi = useSettingsStore as unknown as {
+      persist: { getOptions: () => { merge?: (persisted: unknown, current: unknown) => unknown } };
+    };
+    const options = storeApi.persist.getOptions();
+    if (options.merge) {
+      const currentState = useSettingsStore.getState();
+      const result = options.merge(
+        { advanced: { workspaceRailMode: true } },
+        currentState,
+      ) as typeof currentState;
+
+      expect(result.general.workspaceRailMode).toBe(true);
+      expect((result.advanced as Record<string, unknown>).workspaceRailMode).toBeUndefined();
+    }
+  });
+
+  it("keeps the release-facing workspace rail preference when both paths exist", () => {
+    const storeApi = useSettingsStore as unknown as {
+      persist: { getOptions: () => { merge?: (persisted: unknown, current: unknown) => unknown } };
+    };
+    const options = storeApi.persist.getOptions();
+    if (options.merge) {
+      const currentState = useSettingsStore.getState();
+      const result = options.merge(
+        {
+          general: { workspaceRailMode: false },
+          advanced: { workspaceRailMode: true },
+        },
+        currentState,
+      ) as typeof currentState;
+
+      expect(result.general.workspaceRailMode).toBe(false);
+      expect((result.advanced as Record<string, unknown>).workspaceRailMode).toBeUndefined();
+    }
+  });
 });
 
 describe("settingsStore confirmQuit", () => {
@@ -188,6 +279,26 @@ describe("settingsStore openInNewTab", () => {
 
     useSettingsStore.getState().resetSettings();
     expect(useSettingsStore.getState().general.openInNewTab).toBe(false);
+  });
+});
+
+describe("settingsStore workspaceRailMode", () => {
+  it("defaults workspaceRailMode to false", () => {
+    expect(useSettingsStore.getState().general.workspaceRailMode).toBe(false);
+  });
+
+  it("toggles workspaceRailMode through general settings", () => {
+    useSettingsStore.getState().updateGeneralSetting("workspaceRailMode", true);
+    expect(useSettingsStore.getState().general.workspaceRailMode).toBe(true);
+
+    useSettingsStore.getState().updateGeneralSetting("workspaceRailMode", false);
+    expect(useSettingsStore.getState().general.workspaceRailMode).toBe(false);
+  });
+
+  it("resets workspaceRailMode to false on resetSettings", () => {
+    useSettingsStore.getState().updateGeneralSetting("workspaceRailMode", true);
+    useSettingsStore.getState().resetSettings();
+    expect(useSettingsStore.getState().general.workspaceRailMode).toBe(false);
   });
 });
 
@@ -553,5 +664,20 @@ describe("settingsStore markdown defaults (#618)", () => {
   it("defaults htmlRenderingMode to sanitized so HTML blocks render", () => {
     const { markdown } = useSettingsStore.getState();
     expect(markdown.htmlRenderingMode).toBe("sanitized");
+  });
+
+  it("defaults the HTML allow-list to strict with no custom tags (backward compatible)", () => {
+    const { markdown } = useSettingsStore.getState();
+    expect(markdown.htmlAllowlistLevel).toBe("strict");
+    expect(markdown.htmlAllowlistCustomTags).toBe("");
+  });
+
+  it("persists allow-list changes through updateMarkdownSetting", () => {
+    const { updateMarkdownSetting } = useSettingsStore.getState();
+    updateMarkdownSetting("htmlAllowlistLevel", "extended");
+    updateMarkdownSetting("htmlAllowlistCustomTags", "kbd, samp");
+    const { markdown } = useSettingsStore.getState();
+    expect(markdown.htmlAllowlistLevel).toBe("extended");
+    expect(markdown.htmlAllowlistCustomTags).toBe("kbd, samp");
   });
 });

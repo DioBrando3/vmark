@@ -69,6 +69,7 @@ vi.mock("@/hooks/useDefaultSaveFolder", () => ({
 
 vi.mock("@/utils/wysiwygFlush", () => ({
   flushActiveWysiwygNow: mockFlush,
+  flushAllWysiwygNow: mockFlush,
 }));
 
 vi.mock("@/utils/reentryGuard", () => ({
@@ -490,7 +491,9 @@ describe("handleSave", () => {
 
     await handleSave("main");
 
-    expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/saved/folder");
+    expect(mockOpenWorkspaceWithConfig).toHaveBeenCalledWith("/saved/folder", {
+      windowLabel: "main",
+    });
   });
 });
 

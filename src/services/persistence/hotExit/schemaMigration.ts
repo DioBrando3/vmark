@@ -18,8 +18,12 @@
  * - Every version step MUST have an explicit migration function
  */
 
-import type { SessionData, DocumentState } from './types';
+import type {
+  SessionData,
+  DocumentState,
+} from './types';
 import { SCHEMA_VERSION } from './types';
+import { addWorkspaceContextKindsToSession } from './schemaMigrationWorkspaceContexts';
 
 // Re-export for consumers that import from schemaMigration
 export { SCHEMA_VERSION };
@@ -40,6 +44,8 @@ type MigrationFn = (session: SessionData) => SessionData;
 const migrations: Record<number, MigrationFn> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
+  3: migrateV3toV4,
+  4: migrateV4toV5,
 };
 
 /**
@@ -49,6 +55,14 @@ const migrations: Record<number, MigrationFn> = {
  * @returns true if migration is possible
  */
 export function canMigrate(version: number): boolean {
+  // Schema versions are whole numbers and each step has an explicit migration
+  // function. A fractional (e.g. 4.5) or non-integer version sits between two
+  // real versions with no migration step — reject it here so migrateSession
+  // never enters its loop only to fail on a missing migration function.
+  if (!Number.isInteger(version)) {
+    return false;
+  }
+
   // Invalid version
   if (version < MIN_SUPPORTED_VERSION) {
     return false;
@@ -219,5 +233,47 @@ function addFormatFieldsToTab(
       typeof incoming.active_schema_id === 'string'
         ? incoming.active_schema_id
         : null,
+  };
+}
+
+/**
+ * Migrate v3 -> v4: Add workspace rail instance containers to WindowState.
+ *
+ * Legacy sessions had exactly one window-scoped workspace. v4 keeps those
+ * fields outside the rail model by default and adds empty per-window
+ * containers so old snapshots restore exactly as before while flag-disabled.
+ */
+function migrateV3toV4(session: SessionData): SessionData {
+  return {
+    ...session,
+    version: 4,
+    windows: session.windows.map((window) => addWorkspaceInstanceFields(window)),
+  };
+}
+
+function migrateV4toV5(session: SessionData): SessionData {
+  return addWorkspaceContextKindsToSession(session);
+}
+
+function addWorkspaceInstanceFields(
+  window: SessionData['windows'][number],
+): SessionData['windows'][number] {
+  const incoming = window as SessionData['windows'][number] & {
+    workspace_instance_ids?: unknown;
+    active_workspace_instance_id?: unknown;
+    workspace_instances?: unknown;
+  };
+  return {
+    ...window,
+    workspace_instance_ids: Array.isArray(incoming.workspace_instance_ids)
+      ? incoming.workspace_instance_ids.filter((id): id is string => typeof id === 'string')
+      : [],
+    active_workspace_instance_id:
+      typeof incoming.active_workspace_instance_id === 'string'
+        ? incoming.active_workspace_instance_id
+        : null,
+    workspace_instances: Array.isArray(incoming.workspace_instances)
+      ? incoming.workspace_instances
+      : [],
   };
 }

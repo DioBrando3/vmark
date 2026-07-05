@@ -2,7 +2,8 @@
  * View Shortcuts Hook
  *
  * Purpose: Keyboard shortcut handler for view-mode toggles — source mode,
- *   focus mode, typewriter mode, word wrap, line numbers, and terminal.
+ *   markdown split view, focus mode, typewriter mode, word wrap, line numbers,
+ *   terminal, sidebar panels, and the Knowledge Base panel.
  *
  * Key decisions:
  *   - Listens directly on keydown because menu accelerators aren't always
@@ -13,29 +14,30 @@
  *
  * @coordinates-with shortcutsStore.ts — reads configurable shortcut bindings
  * @coordinates-with editorStore.ts — toggles sourceMode, focusMode, etc.
+ * @coordinates-with contentServerStore.ts — toggles the Knowledge Base panel
+ * @coordinates-with splitPaneViewShortcut.ts — F6/Shift+F6 branch for split-pane tabs
  * @module hooks/useViewShortcuts
  */
 
 import { useEffect } from "react";
 import { useUIStore } from "@/stores/uiStore";
-import { useDocumentStore } from "@/stores/documentStore";
+import { useContentServerStore } from "@/stores/contentServerStore";
 import { useShortcutsStore } from "@/stores/settingsStore";
 import { isImeKeyEvent } from "@/utils/imeGuard";
 import { matchesShortcutEvent, isMacPlatform } from "@/utils/shortcutMatch";
 import { cleanupBeforeModeSwitch } from "@/services/assembly/modeSwitchCleanup";
 import { getCurrentWindowLabel } from "@/services/persistence/workspaceStorage";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
+import { toggleMarkdownSplitWithCheckpoint } from "@/hooks/markdownSplitToggle";
+import { toggleSplitDocuments } from "@/services/navigation/toggleSplitDocuments";
 import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
+import { toggleDocumentReadOnlyWithOwnership } from "@/services/workspaces/fileOwnership";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useLintStore } from "@/stores/documentStore";
-import { getActiveDocument, getActiveTabId } from "@/services/navigation/activeDocument";
-import { imeToast as toast } from "@/services/ime/imeToast";
-import i18n from "@/i18n";
-import { triggerLintRefresh } from "@/plugins/codemirror/sourceLint";
-import { isYamlFileName } from "@/utils/dropPaths";
-import { useEditorStore } from "@/stores/editorStore";
-import { serializeMarkdown } from "@/utils/markdownPipeline";
+import { getActiveTabId } from "@/services/navigation/activeDocument";
 import { scrollToSelectedDiagnostic } from "@/hooks/lintNavigation";
+import { runActiveLint } from "@/services/lint/runActiveLint";
+import { applySplitPaneViewShortcut } from "@/hooks/splitPaneViewShortcut";
 
 // ---------------------------------------------------------------------------
 // Pure functions — exported for testing, no DOM or store access
@@ -59,9 +61,46 @@ export type ViewAction =
   | "validateMarkdown"
   | "lintNext"
   | "lintPrev"
+  | "toggleSidebar"
   | "toggleOutline"
   | "fileExplorer"
-  | "viewHistory";
+  | "viewHistory"
+  | "knowledgeBase"
+  | "markdownSplit"
+  | "splitDocuments";
+
+/** All shortcut ids the view-shortcut resolver/executors consult. */
+const VIEW_SHORTCUT_IDS: ViewAction[] = [
+  "toggleTerminal",
+  "sourceMode",
+  "focusMode",
+  "typewriterMode",
+  "wordWrap",
+  "lineNumbers",
+  "readOnly",
+  "fitTables",
+  "validateMarkdown",
+  "lintNext",
+  "lintPrev",
+  "toggleSidebar",
+  "toggleOutline",
+  "fileExplorer",
+  "viewHistory",
+  "knowledgeBase",
+  "markdownSplit",
+  "splitDocuments",
+];
+
+/** Build the action-id → binding map resolveViewAction expects from the store. */
+function collectViewShortcuts(
+  getShortcut: (id: string) => string,
+): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const id of VIEW_SHORTCUT_IDS) {
+    map[id] = getShortcut(id);
+  }
+  return map;
+}
 
 /**
  * Resolve a keyboard event to a view action identifier. Pure — no DOM mutation or store access.
@@ -95,9 +134,13 @@ export function resolveViewAction(
     ["validateMarkdown", "validateMarkdown"],
     ["lintNext", "lintNext"],
     ["lintPrev", "lintPrev"],
+    ["toggleSidebar", "toggleSidebar"],
     ["toggleOutline", "toggleOutline"],
     ["fileExplorer", "fileExplorer"],
     ["viewHistory", "viewHistory"],
+    ["knowledgeBase", "knowledgeBase"],
+    ["markdownSplit", "markdownSplit"],
+    ["splitDocuments", "splitDocuments"],
   ];
 
   for (const [key, action] of actionMap) {
@@ -111,6 +154,70 @@ export function resolveViewAction(
 }
 
 // ---------------------------------------------------------------------------
+// Action executors — keyed by ViewAction so handleKeyDown stays a thin
+// resolve-then-dispatch loop instead of a 200-line if-chain. Each executor owns
+// the side effect for one action; resolveViewAction owns the matching rules.
+// ---------------------------------------------------------------------------
+
+/** Read the freshest content for the active tab (live editor first, doc store fallback). */
+/**
+ * Run lint/validation on the active document and toast the combined result.
+ * Delegates to the shared lint command service so the keyboard-shortcut path
+ * and the `lint.check` command bus path can't drift.
+ */
+function executeValidateMarkdown(): void {
+  runActiveLint(getCurrentWindowLabel());
+}
+
+function executeLintNav(direction: "next" | "prev"): void {
+  const tabId = getActiveTabId(getCurrentWindowLabel());
+  if (!tabId) return;
+  const lint = useLintStore.getState();
+  if (direction === "next") lint.selectNext(tabId);
+  else lint.selectPrev(tabId);
+  scrollToSelectedDiagnostic(tabId);
+}
+
+/** Side-effect executors for each resolved view action. Exported for testing
+ *  (each executor owns one action's side effect; matching lives in
+ *  resolveViewAction). */
+export const VIEW_ACTION_EXECUTORS: Record<ViewAction, () => void> = {
+  toggleTerminal: () => requestToggleTerminal(),
+  sourceMode: () => {
+    // Split-pane / viewer tab with a preview: F6 toggles Source⇄Split.
+    if (applySplitPaneViewShortcut(getCurrentWindowLabel(), "source")) return;
+    cleanupBeforeModeSwitch();
+    toggleSourceModeWithCheckpoint(getCurrentWindowLabel());
+  },
+  focusMode: () => useUIStore.getState().toggleFocusMode(),
+  typewriterMode: () => useUIStore.getState().toggleTypewriterMode(),
+  wordWrap: () => useUIStore.getState().toggleWordWrap(),
+  lineNumbers: () => useUIStore.getState().toggleLineNumbers(),
+  readOnly: () => {
+    const tabId = getActiveTabId(getCurrentWindowLabel());
+    if (tabId) toggleDocumentReadOnlyWithOwnership(tabId);
+  },
+  fitTables: () => {
+    const current = useSettingsStore.getState().markdown.tableFitToWidth;
+    useSettingsStore.getState().updateMarkdownSetting("tableFitToWidth", !current);
+  },
+  validateMarkdown: executeValidateMarkdown,
+  lintNext: () => executeLintNav("next"),
+  lintPrev: () => executeLintNav("prev"),
+  toggleSidebar: () => useUIStore.getState().toggleSidebar(),
+  toggleOutline: () => useUIStore.getState().toggleSidebarView("outline"),
+  fileExplorer: () => useUIStore.getState().toggleSidebarView("files"),
+  viewHistory: () => useUIStore.getState().toggleSidebarView("history"),
+  knowledgeBase: () => useContentServerStore.getState().togglePanel(),
+  markdownSplit: () => {
+    // Split-pane / viewer tab with a preview: Shift+F6 toggles Preview⇄Split.
+    if (applySplitPaneViewShortcut(getCurrentWindowLabel(), "preview")) return;
+    toggleMarkdownSplitWithCheckpoint(getCurrentWindowLabel());
+  },
+  splitDocuments: () => toggleSplitDocuments(getCurrentWindowLabel()),
+};
+
+// ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
 
@@ -120,204 +227,14 @@ export function useViewShortcuts() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isImeKeyEvent(e)) return;
 
-      const shortcuts = useShortcutsStore.getState();
+      // Single source of truth: resolveViewAction owns the matching rules
+      // (terminal-first, input/textarea suppression, ordered fall-through).
+      const shortcuts = collectViewShortcuts(useShortcutsStore.getState().getShortcut);
+      const action = resolveViewAction(e, shortcuts);
+      if (!action) return;
 
-      // Toggle terminal — must fire even from terminal's textarea
-      const toggleTerminalKey = shortcuts.getShortcut("toggleTerminal");
-      if (matchesShortcutEvent(e, toggleTerminalKey)) {
-        e.preventDefault();
-        requestToggleTerminal();
-        return;
-      }
-
-      // Ignore if in input/textarea
-      const target = e.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") {
-        return;
-      }
-
-      // Source mode
-      const sourceModeKey = shortcuts.getShortcut("sourceMode");
-      if (matchesShortcutEvent(e, sourceModeKey)) {
-        e.preventDefault();
-        cleanupBeforeModeSwitch();
-        toggleSourceModeWithCheckpoint(getCurrentWindowLabel());
-        return;
-      }
-
-      // Focus mode
-      const focusModeKey = shortcuts.getShortcut("focusMode");
-      if (matchesShortcutEvent(e, focusModeKey)) {
-        e.preventDefault();
-        useUIStore.getState().toggleFocusMode();
-        return;
-      }
-
-      // Typewriter mode
-      const typewriterModeKey = shortcuts.getShortcut("typewriterMode");
-      if (matchesShortcutEvent(e, typewriterModeKey)) {
-        e.preventDefault();
-        useUIStore.getState().toggleTypewriterMode();
-        return;
-      }
-
-      // Word wrap
-      const wordWrapKey = shortcuts.getShortcut("wordWrap");
-      if (matchesShortcutEvent(e, wordWrapKey)) {
-        e.preventDefault();
-        useUIStore.getState().toggleWordWrap();
-        return;
-      }
-
-      // Line numbers
-      const lineNumbersKey = shortcuts.getShortcut("lineNumbers");
-      if (matchesShortcutEvent(e, lineNumbersKey)) {
-        e.preventDefault();
-        useUIStore.getState().toggleLineNumbers();
-        return;
-      }
-
-      // Read-only mode
-      const readOnlyKey = shortcuts.getShortcut("readOnly");
-      if (readOnlyKey && matchesShortcutEvent(e, readOnlyKey)) {
-        e.preventDefault();
-        const tabId = getActiveTabId(getCurrentWindowLabel());
-        if (tabId) useDocumentStore.getState().toggleReadOnly(tabId);
-        return;
-      }
-
-      // Fit tables to width
-      const fitTablesKey = shortcuts.getShortcut("fitTables");
-      if (fitTablesKey && matchesShortcutEvent(e, fitTablesKey)) {
-        e.preventDefault();
-        const current = useSettingsStore.getState().markdown.tableFitToWidth;
-        useSettingsStore.getState().updateMarkdownSetting("tableFitToWidth", !current);
-        return;
-      }
-
-      // Validate markdown (run lint)
-      const validateMarkdownKey = shortcuts.getShortcut("validateMarkdown");
-      if (validateMarkdownKey && matchesShortcutEvent(e, validateMarkdownKey)) {
-        e.preventDefault();
-        const lintEnabled = useSettingsStore.getState().markdown.lintEnabled;
-        if (!lintEnabled) return;
-        const windowLabel = getCurrentWindowLabel();
-        const tabId = getActiveTabId(windowLabel);
-        if (!tabId) return;
-
-        // Prefer fresh content from the active editor over potentially stale doc store.
-        // In Source mode: read from CM view. In WYSIWYG mode: serialize Tiptap content.
-        let content: string | undefined;
-        const editorStoreState = useUIStore.getState();
-        const { activeSourceView } = useEditorStore.getState().active;
-
-        if (editorStoreState.sourceMode && activeSourceView) {
-          // Source mode — read directly from CM document
-          content = activeSourceView.state.doc.toString();
-        } else {
-          // WYSIWYG mode — serialize Tiptap editor to markdown
-          const tiptapEditor = useEditorStore.getState().tiptap.editor;
-          if (tiptapEditor) {
-            content = serializeMarkdown(tiptapEditor.state.schema, tiptapEditor.state.doc);
-          }
-        }
-
-        // Fall back to persisted doc content if live content unavailable
-        if (content === undefined) {
-          const doc = getActiveDocument(windowLabel);
-          content = doc?.content;
-        }
-
-        if (content !== undefined) {
-          const filePath = getActiveDocument(windowLabel)?.filePath ?? null;
-          const isYaml = filePath
-            ? isYamlFileName(filePath.split(/[\\/]/).pop() ?? "")
-            : false;
-          const finalize = (totalCount: number) => {
-            triggerLintRefresh();
-            if (totalCount === 0) {
-              toast.success(i18n.t("statusbar:lint.clean.toast"));
-            } else {
-              toast.info(
-                i18n.t("dialog:toast.lintFoundIssues", { count: totalCount }),
-              );
-            }
-          };
-          if (isYaml) {
-            // Codex audit MED-3 close-out: YAML files now run their
-            // own lint pipeline and write to lintStore. Same toast,
-            // same badge, same F2 navigation as markdown.
-            const yamlDiags = useLintStore
-              .getState()
-              .runYamlLint(tabId, content);
-            finalize(yamlDiags.length);
-          } else {
-            const syncDiagnostics = useLintStore
-              .getState()
-              .runLint(tabId, content);
-            triggerLintRefresh();
-            // Codex audit MED-4: toast reflects the COMBINED
-            // (sync + async link-check) result.
-            if (filePath) {
-              void useLintStore
-                .getState()
-                .runLinkCheck(tabId, content, filePath)
-                .then((merged) => finalize(merged.length));
-            } else {
-              finalize(syncDiagnostics.length);
-            }
-          }
-        }
-        return;
-      }
-
-      // Navigate to next lint issue
-      const lintNextKey = shortcuts.getShortcut("lintNext");
-      if (lintNextKey && matchesShortcutEvent(e, lintNextKey)) {
-        e.preventDefault();
-        const windowLabel = getCurrentWindowLabel();
-        const tabId = getActiveTabId(windowLabel);
-        if (tabId) {
-          useLintStore.getState().selectNext(tabId);
-          scrollToSelectedDiagnostic(tabId);
-        }
-        return;
-      }
-
-      // Navigate to previous lint issue
-      const lintPrevKey = shortcuts.getShortcut("lintPrev");
-      if (lintPrevKey && matchesShortcutEvent(e, lintPrevKey)) {
-        e.preventDefault();
-        const windowLabel = getCurrentWindowLabel();
-        const tabId = getActiveTabId(windowLabel);
-        if (tabId) {
-          useLintStore.getState().selectPrev(tabId);
-          scrollToSelectedDiagnostic(tabId);
-        }
-        return;
-      }
-
-      // Sidebar panel toggles
-      const toggleOutlineKey = shortcuts.getShortcut("toggleOutline");
-      if (matchesShortcutEvent(e, toggleOutlineKey)) {
-        e.preventDefault();
-        useUIStore.getState().toggleSidebarView("outline");
-        return;
-      }
-
-      const fileExplorerKey = shortcuts.getShortcut("fileExplorer");
-      if (matchesShortcutEvent(e, fileExplorerKey)) {
-        e.preventDefault();
-        useUIStore.getState().toggleSidebarView("files");
-        return;
-      }
-
-      const viewHistoryKey = shortcuts.getShortcut("viewHistory");
-      if (matchesShortcutEvent(e, viewHistoryKey)) {
-        e.preventDefault();
-        useUIStore.getState().toggleSidebarView("history");
-        return;
-      }
+      e.preventDefault();
+      VIEW_ACTION_EXECUTORS[action]();
     };
 
     window.addEventListener("keydown", handleKeyDown);

@@ -37,11 +37,18 @@
   },
   "view": {
     "toggleSourceMode": "Toggle Source Mode",
+    "toggleSplitDocuments": "Split Editor: Two Documents Side by Side",
+    "toggleSyncScroll": "Sync Scroll Between Split Panes",
+    "closePane": "Close Split Pane",
+    "focusOtherPane": "Focus Other Pane",
+    "setWysiwygMode": "Set WYSIWYG Mode",
     "toggleFocusMode": "Toggle Focus Mode",
     "toggleTypewriterMode": "Toggle Typewriter Mode",
     "toggleOutline": "Toggle Outline",
     "toggleFileExplorer": "Toggle File Explorer",
     "toggleHistory": "Toggle History",
+    "toggleKnowledgeBase": "Toggle Knowledge Base",
+    "toggleMarkdownSplit": "Toggle Markdown Split View",
     "toggleWordWrap": "Toggle Word Wrap",
     "toggleLineNumbers": "Toggle Line Numbers",
     "toggleDiagramPreview": "Toggle Diagram Preview",
@@ -51,7 +58,8 @@
     "zoomActual": "Actual Size",
     "zoomIn": "Zoom In",
     "zoomOut": "Zoom Out",
-    "toggleShowInvisibles": "Toggle Invisibles"
+    "toggleShowInvisibles": "Toggle Invisibles",
+    "toggleWindowStatus": "Window Status"
   },
   "lint": {
     "check": "Check Markdown",

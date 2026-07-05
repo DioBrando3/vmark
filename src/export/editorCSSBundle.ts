@@ -88,8 +88,11 @@ const INTERACTIVE_SELECTOR_PREFIXES = [
   ".ProseMirror-focused",
   ".ProseMirror-hideselection",
   ".pm-selection-",
-  // Note: .media-border-*, .media-align-*, .heading-align-*, .table-fit-to-width
-  // are NOT stripped — they control content layout and are propagated to the export wrapper.
+  // Note: .media-border-*, .media-align-*, .heading-align- classes are NOT
+  // stripped — they control content layout and carry over to the export
+  // wrapper. (.table-fit-to-width is ephemeral, markdown-less editor state that
+  // never survives the fresh export re-render; tables are instead fitted to the
+  // page unconditionally by the export table CSS — see exportOverrides.ts.)
   // Interactive plugin elements
   ".code-lang-dropdown",
   ".code-block-edit-",
@@ -114,13 +117,14 @@ const INTERACTIVE_SELECTOR_PREFIXES = [
 /**
  * Strip interactive-only CSS rules from raw CSS text.
  * Uses a simple state machine to parse rule blocks and filter by selector.
+ * Exported for direct unit testing (this is a hand-rolled parser on the
+ * export path — see editorCSSBundle.test.ts for its behavioral contract).
  */
-function stripInteractiveRules(css: string): string {
+export function stripInteractiveRules(css: string): string {
   const lines = css.split("\n");
   const output: string[] = [];
   let depth = 0;
   let skipBlock = false;
-  let currentSelector = "";
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trim();
@@ -134,10 +138,10 @@ function stripInteractiveRules(css: string): string {
 
     if (depth === 0 && opens > 0) {
       // Starting a new top-level rule block
-      currentSelector = trimmed.replace(/\s*\{.*$/, "");
+      const selector = trimmed.replace(/\s*\{.*$/, "");
 
       // Check if this selector should be excluded
-      skipBlock = isInteractiveSelector(currentSelector);
+      skipBlock = isInteractiveSelector(selector);
 
       // Also skip @keyframes
       if (trimmed.startsWith("@keyframes")) {
@@ -159,7 +163,6 @@ function stripInteractiveRules(css: string): string {
     if (depth <= 0) {
       depth = 0;
       skipBlock = false;
-      currentSelector = "";
     }
   }
 

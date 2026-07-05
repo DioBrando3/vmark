@@ -160,7 +160,9 @@ menu:
 
   # === 视图菜单 ===
   view: "视图"
+  view.wysiwygMode: "所见即所得模式"
   view.sourceMode: "源代码模式"
+  view.markdownSplit: "Markdown 分屏视图"
   view.focusMode: "专注模式"
   view.typewriterMode: "打字机模式"
   view.actualSize: "实际大小"
@@ -175,6 +177,7 @@ menu:
   view.outline: "切换大纲"
   view.fileExplorer: "切换文件浏览器"
   view.history: "切换历史记录"
+  view.knowledgeBase: "切换知识库"
   view.terminal: "切换终端"
   view.checkMarkdown: "检查 Markdown"
   view.lintNext: "下一个问题"
@@ -182,6 +185,7 @@ menu:
   # === 窗口菜单 ===
   window: "窗口"
   window.bringAllToFront: "将全部窗口置于前方"
+  window.status: "窗口状态"
 
   # === 帮助菜单 ===
   help: "帮助"
@@ -260,6 +264,9 @@ errors:
   # === MCP ===
   mcp.spawnInProgress: "MCP 侧载进程正在启动中"
   mcp.configMismatch: "配置校验失败：写入内容与预期不符"
+
+window:
+  settings.title: "设置"
 
 cli:
   dialogTitle: "Shell 命令"

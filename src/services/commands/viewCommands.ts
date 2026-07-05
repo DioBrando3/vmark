@@ -1,26 +1,27 @@
 /**
  * View commands — ADR-012 migration of useViewMenuEvents.
  *
- * 16 commands covering source/focus/typewriter modes, sidebar views,
+ * 20 commands covering source/focus/typewriter modes, sidebar views,
  * word wrap, line numbers, diagram preview, fit tables, read-only,
- * terminal toggle, zoom, lint check/navigation.
+ * terminal toggle, zoom, lint check/navigation, and split-document panes.
  */
 
-import { registerCommand } from "./CommandBus";
+import { hasCommand, registerCommand } from "./CommandBus";
 import { useUIStore } from "@/stores/uiStore";
-import { useDocumentStore } from "@/stores/documentStore";
+import { useContentServerStore } from "@/stores/contentServerStore";
+import { useWindowStatusStore } from "@/stores/windowStatusStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useLintStore } from "@/stores/documentStore";
-import { useEditorStore } from "@/stores/editorStore";
+import { usePaneStore } from "@/stores/paneStore";
+import { toggleSplitDocuments } from "@/services/navigation/toggleSplitDocuments";
 import { requestToggleTerminal } from "@/components/Terminal/terminalGate";
 import { cleanupBeforeModeSwitch } from "@/services/assembly/modeSwitchCleanup";
 import { toggleSourceModeWithCheckpoint } from "@/hooks/useUnifiedHistory";
-import { getActiveDocument, getActiveTabId } from "@/services/navigation/activeDocument";
-import { serializeMarkdown } from "@/utils/markdownPipeline";
-import { triggerLintRefresh } from "@/plugins/codemirror/sourceLint";
-import { isYamlFileName } from "@/utils/dropPaths";
+import { toggleMarkdownSplitWithCheckpoint } from "@/hooks/markdownSplitToggle";
+import { getActiveTabId } from "@/services/navigation/activeDocument";
+import { toggleDocumentReadOnlyWithOwnership } from "@/services/workspaces/fileOwnership";
 import { scrollToSelectedDiagnostic } from "@/hooks/lintNavigation";
-import { imeToast as toast } from "@/services/ime/imeToast";
+import { runActiveLint } from "@/services/lint/runActiveLint";
 import i18n from "@/i18n";
 
 const DEFAULT_FONT_SIZE = 18;
@@ -32,7 +33,7 @@ type Ctx = { windowLabel?: string };
 
 let registered = false;
 export function registerViewCommands(): void {
-  if (registered) return;
+  if (registered || hasCommand("view.toggleSourceMode")) return; // HMR: module-local flag resets on reload; the bus registry survives
 
   registerCommand({
     id: "view.toggleSourceMode",
@@ -81,6 +82,46 @@ export function registerViewCommands(): void {
   });
 
   registerCommand({
+    id: "view.toggleKnowledgeBase",
+    title: () => i18n.t("commands:view.toggleKnowledgeBase"),
+    category: "view",
+    run: () => useContentServerStore.getState().togglePanel(),
+  });
+
+  registerCommand({
+    id: "view.toggleWindowStatus",
+    title: () => i18n.t("commands:view.toggleWindowStatus"),
+    category: "view",
+    run: () => useWindowStatusStore.getState().togglePanel(),
+  });
+
+  registerCommand({
+    id: "view.toggleMarkdownSplit",
+    title: () => i18n.t("commands:view.toggleMarkdownSplit"),
+    category: "view",
+    run: (_args, ctx: Ctx) =>
+      toggleMarkdownSplitWithCheckpoint(ctx.windowLabel ?? "main"),
+  });
+
+  // Bound to the native "WYSIWYG Mode" radio item (#1070). WYSIWYG is the
+  // absence of source/split, so this turns off whichever is on, reusing the
+  // same cleanup + history-checkpoint path as the individual toggles. No-op
+  // when already in WYSIWYG.
+  registerCommand({
+    id: "view.setWysiwygMode",
+    title: () => i18n.t("commands:view.setWysiwygMode"),
+    category: "view",
+    run: (_args, ctx: Ctx) => {
+      const windowLabel = ctx.windowLabel ?? "main";
+      const s = useUIStore.getState();
+      if (!s.sourceMode && !s.markdownSplitView) return;
+      cleanupBeforeModeSwitch();
+      if (s.sourceMode) toggleSourceModeWithCheckpoint(windowLabel);
+      else toggleMarkdownSplitWithCheckpoint(windowLabel);
+    },
+  });
+
+  registerCommand({
     id: "view.toggleWordWrap",
     title: () => i18n.t("commands:view.toggleWordWrap"),
     category: "view",
@@ -118,7 +159,7 @@ export function registerViewCommands(): void {
     run: (_args, ctx: Ctx) => {
       const windowLabel = ctx.windowLabel ?? "main";
       const tabId = getActiveTabId(windowLabel);
-      if (tabId) useDocumentStore.getState().toggleReadOnly(tabId);
+      if (tabId) toggleDocumentReadOnlyWithOwnership(tabId);
     },
   });
 
@@ -173,56 +214,7 @@ export function registerViewCommands(): void {
     title: () => i18n.t("commands:lint.check"),
     category: "lint",
     run: (_args, ctx: Ctx) => {
-      const windowLabel = ctx.windowLabel ?? "main";
-      const lintEnabled = useSettingsStore.getState().markdown.lintEnabled;
-      if (!lintEnabled) return;
-      const tabId = getActiveTabId(windowLabel);
-      if (!tabId) return;
-
-      let content: string | undefined;
-      const editorState = useUIStore.getState();
-      const { activeSourceView } = useEditorStore.getState().active;
-
-      if (editorState.sourceMode && activeSourceView) {
-        content = activeSourceView.state.doc.toString();
-      } else {
-        const tiptapEditor = useEditorStore.getState().tiptap.editor;
-        if (tiptapEditor) {
-          content = serializeMarkdown(tiptapEditor.state.schema, tiptapEditor.state.doc);
-        }
-      }
-
-      if (content === undefined) {
-        const doc = getActiveDocument(windowLabel);
-        content = doc?.content;
-      }
-
-      if (content !== undefined) {
-        const filePath = getActiveDocument(windowLabel)?.filePath ?? null;
-        const isYaml = filePath
-          ? isYamlFileName(filePath.split(/[\\/]/).pop() ?? "")
-          : false;
-        const finalize = (totalCount: number) => {
-          triggerLintRefresh();
-          if (totalCount === 0) {
-            toast.success(i18n.t("statusbar:lint.clean.toast"));
-          } else {
-            toast.info(i18n.t("dialog:toast.lintFoundIssues", { count: totalCount }));
-          }
-        };
-        if (isYaml) {
-          const yamlDiags = useLintStore.getState().runYamlLint(tabId, content);
-          finalize(yamlDiags.length);
-        } else {
-          const syncDiagnostics = useLintStore.getState().runLint(tabId, content);
-          triggerLintRefresh();
-          if (filePath) {
-            void useLintStore.getState().runLinkCheck(tabId, content, filePath).then((merged) => finalize(merged.length));
-          } else {
-            finalize(syncDiagnostics.length);
-          }
-        }
-      }
+      runActiveLint(ctx.windowLabel ?? "main");
     },
   });
 
@@ -254,5 +246,55 @@ export function registerViewCommands(): void {
     },
   });
 
+  // Two-documents-side-by-side toggle (#1081). Opening seeds the secondary
+  // pane with the current document; the user then picks a different file there.
+  registerCommand({
+    id: "view.toggleSplitDocuments",
+    title: () => i18n.t("commands:view.toggleSplitDocuments"),
+    category: "view",
+    run: (_args, ctx: Ctx) => toggleSplitDocuments(ctx.windowLabel ?? "main"),
+  });
+
+  // Synchronize scrolling between the two panes (great for bilingual reading).
+  registerCommand({
+    id: "view.toggleSyncScroll",
+    title: () => i18n.t("commands:view.toggleSyncScroll"),
+    category: "view",
+    run: (_args, ctx: Ctx) =>
+      usePaneStore.getState().toggleSyncScroll(ctx.windowLabel ?? "main"),
+  });
+
+  registerCommand({
+    id: "view.closePane",
+    title: () => i18n.t("commands:view.closePane"),
+    category: "view",
+    run: (_args, ctx: Ctx) => {
+      const windowLabel = ctx.windowLabel ?? "main";
+      if (usePaneStore.getState().byWindow[windowLabel]?.enabled) {
+        usePaneStore.getState().closeSplit(windowLabel);
+      }
+    },
+  });
+
+  registerCommand({
+    id: "view.focusOtherPane",
+    title: () => i18n.t("commands:view.focusOtherPane"),
+    category: "view",
+    run: (_args, ctx: Ctx) => {
+      const windowLabel = ctx.windowLabel ?? "main";
+      const pane = usePaneStore.getState();
+      const split = pane.byWindow[windowLabel];
+      if (split?.enabled) {
+        const next = split.focusedPane === "primary" ? "secondary" : "primary";
+        pane.setFocusedPane(windowLabel, next);
+      }
+    },
+  });
+
   registered = true;
+}
+
+/** Test-only: reset the module registration guard so a fresh CommandBus can be repopulated. */
+export function __resetViewCommandsRegistration(): void {
+  registered = false;
 }

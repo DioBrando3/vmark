@@ -160,7 +160,9 @@ menu:
 
   # === View menu ===
   view: "View"
+  view.wysiwygMode: "WYSIWYG Mode"
   view.sourceMode: "Source Code Mode"
+  view.markdownSplit: "Markdown Split View"
   view.focusMode: "Focus Mode"
   view.typewriterMode: "Typewriter Mode"
   view.actualSize: "Actual Size"
@@ -175,6 +177,7 @@ menu:
   view.outline: "Toggle Outline"
   view.fileExplorer: "Toggle File Explorer"
   view.history: "Toggle History"
+  view.knowledgeBase: "Toggle Knowledge Base"
   view.terminal: "Toggle Terminal"
   view.checkMarkdown: "Check Markdown"
   view.lintNext: "Next Issue"
@@ -183,6 +186,7 @@ menu:
   # === Window menu ===
   window: "Window"
   window.bringAllToFront: "Bring All to Front"
+  window.status: "Window Status"
 
   # === Help menu ===
   help: "Help"
@@ -261,6 +265,9 @@ errors:
   # === MCP ===
   mcp.spawnInProgress: "MCP sidecar spawn already in progress"
   mcp.configMismatch: "Config validation failed: written content does not match"
+
+window:
+  settings.title: "Settings"
 
 cli:
   dialogTitle: "Shell Command"

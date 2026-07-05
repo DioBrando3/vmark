@@ -33,7 +33,8 @@
     "buttonKeep": "Conservar mis cambios",
     "buttonReloadAll": "Recargar todo",
     "buttonKeepAll": "Conservar todo",
-    "buttonReviewEach": "Revisar cada uno"
+    "buttonReviewEach": "Revisar cada uno",
+    "unknownFile": "archivo"
   },
   "revertToSaved": {
     "title": "Revertir a guardado",
@@ -77,6 +78,7 @@
   },
   "chooseFolderForDocs": "Elegir carpeta para {{count}} documentos nuevos",
   "toast": {
+    "mcpApprovalRequired": "Se bloqueó una solicitud de IA para guardar en una nueva ubicación: {{filename}}. Activa \"Aprobar ediciones automáticamente\" en Configuración → Integraciones para permitirlo.",
     "saveDialogFailed": "Error en el cuadro de diálogo de guardado: {{error}}",
     "failedToMoveToNewWindow": "Error al mover el archivo a una nueva ventana",
     "failedToSaveDocuments": "Error al guardar documentos",
@@ -87,6 +89,11 @@
     "quarantineCleared_other": "Se eliminó la cuarentena de macOS de {{count}} archivos Markdown en este espacio de trabajo.",
     "quarantineClearedDesc": "macOS marca los archivos descargados por algunas aplicaciones con un atributo que bloquea silenciosamente el doble clic del Finder mientras VMark se está ejecutando. VMark lo eliminó para que esos archivos se abran. Desactivar en Ajustes → Avanzado.",
     "failedToOpenFilesInNewWindow": "Error al abrir archivos en una nueva ventana",
+    "workspaceMoveFailed": "Failed to move workspace to a new window",
+    "workspaceDuplicateFailed": "Failed to duplicate workspace",
+    "workspaceDuplicateSkipped_one": "Duplicated workspace and skipped 1 dirty, untitled, or missing tab.",
+    "workspaceDuplicateSkipped_other": "Duplicated workspace and skipped {{count}} dirty, untitled, or missing tabs.",
+    "sameFileDirtyConflict": "Cannot save \"{{file}}\" because another workspace window has unsaved changes for the same file ({{workspace}}).",
     "onlyMarkdownViaDropDrop": "Solo se pueden abrir archivos markdown mediante arrastrar y soltar",
     "restored": "Restaurado: {{filename}}",
     "reloaded": "Recargado: {{filename}}",
@@ -100,6 +107,8 @@
     "exportHtmlSuccess": "Exportado a la carpeta",
     "exportHtmlResourceWarning_one": "1 recurso no pudo incluirse",
     "exportHtmlResourceWarning_other": "{{count}} recursos no pudieron incluirse",
+    "exportImageWarning_one": "No se pudo incrustar 1 imagen y falta en el resultado",
+    "exportImageWarning_other": "No se pudieron incrustar {{count}} imágenes y faltan en el resultado",
     "printRequiresMac": "La impresión requiere macOS.",
     "nativePdfRequiresMac": "La exportación nativa a PDF requiere macOS. Usa Imprimir en su lugar.",
     "failedToPreparePdf": "Error al preparar la exportación a PDF",
@@ -196,12 +205,6 @@
   "saveRequired": {
     "title": "Guardado requerido"
   },
-  "closeLastTab": {
-    "title": "Cerrar último documento",
-    "message": "Este es el último documento abierto en este espacio de trabajo. ¿Cerrarlo?",
-    "confirm": "Cerrar",
-    "cancel": "Cancelar"
-  },
   "fileTooLarge": {
     "title": "Archivo demasiado grande",
     "message": "El archivo es demasiado grande ({{size}} MB). El máximo es {{max}} MB."
@@ -217,7 +220,13 @@
   "errorBoundary": {
     "title": "Algo salió mal",
     "featureFailedTitle": "No se pudo renderizar {{feature}}",
-    "tryAgain": "Reintentar"
+    "tryAgain": "Reintentar",
+    "feature": {
+      "editor": "Editor",
+      "terminal": "Terminal",
+      "settings": "Ajustes",
+      "pdfExport": "Exportar a PDF"
+    }
   },
   "pdfExport": {
     "title": "Exportar PDF",
@@ -235,5 +244,8 @@
     "pin": "Fijar",
     "pinTooltip": "Mantener este aviso abierto",
     "unpinTooltip": "Fijado — cerrar manualmente"
+  },
+  "openWorkspaceFolder": {
+    "title": "Abrir carpeta del espacio de trabajo"
   }
 }

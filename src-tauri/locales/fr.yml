@@ -160,7 +160,9 @@ menu:
 
   # === View menu ===
   view: "Affichage"
+  view.wysiwygMode: "Mode WYSIWYG"
   view.sourceMode: "Mode code source"
+  view.markdownSplit: "Vue divisée Markdown"
   view.focusMode: "Mode focus"
   view.typewriterMode: "Mode machine à écrire"
   view.actualSize: "Taille réelle"
@@ -175,6 +177,7 @@ menu:
   view.outline: "Afficher/masquer le plan"
   view.fileExplorer: "Afficher/masquer l'explorateur de fichiers"
   view.history: "Afficher/masquer l'historique"
+  view.knowledgeBase: "Afficher/masquer la base de connaissances"
   view.terminal: "Afficher/masquer le terminal"
   view.checkMarkdown: "Vérifier Markdown"
   view.lintNext: "Problème suivant"
@@ -182,6 +185,7 @@ menu:
   # === Window menu ===
   window: "Fenêtre"
   window.bringAllToFront: "Tout mettre au premier plan"
+  window.status: "État des fenêtres"
 
   # === Help menu ===
   help: "Aide"
@@ -260,6 +264,9 @@ errors:
   # === MCP ===
   mcp.spawnInProgress: "Démarrage du sidecar MCP déjà en cours"
   mcp.configMismatch: "Échec de validation de la configuration : le contenu écrit ne correspond pas"
+
+window:
+  settings.title: "Réglages"
 
 cli:
   dialogTitle: "Commande shell"

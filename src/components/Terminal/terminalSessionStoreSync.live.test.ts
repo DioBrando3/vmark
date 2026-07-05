@@ -8,7 +8,7 @@
  *     setting (G6/WI-4.1)
  *   - fontFamily updates on a monoFont-only change (the stale-read fix)
  *
- * Drives the real useSettingsStore; @/theme and @/hooks/useTheme's
+ * Drives the real useSettingsStore; @/theme and @/utils/fontStacks'
  * resolveMonoFontStack are mocked so the effects have stable, observable
  * outputs.
  */
@@ -25,7 +25,7 @@ vi.mock("@/theme", () => ({
   buildXtermThemeForId: (...args: unknown[]) => mockBuildTheme(...(args as [string])),
 }));
 
-vi.mock("@/hooks/useTheme", () => ({
+vi.mock("@/utils/fontStacks", () => ({
   resolveMonoFontStack: (mono: string) => mockResolveMonoFontStack(mono),
 }));
 
@@ -42,6 +42,7 @@ function makeEntry(): SyncableSessionEntry {
       fitAddon: { fit: vi.fn() } as any,
       isShellBusy: () => false,
       getCwd: () => null,
+      setOnShellIdle: vi.fn(),
     } as any,
     pty: null,
     shellExited: false,

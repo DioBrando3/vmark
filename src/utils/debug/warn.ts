@@ -48,6 +48,11 @@ export const shortcutsWarn = isDev
   ? (...args: unknown[]) => console.warn("[Shortcuts]", ...args)
   : (...args: unknown[]) => prodWarn("[Shortcuts]", ...args);
 
+/** Warn logger for the content server (KB / Slidev). */
+export const contentServerWarn = isDev
+  ? (...args: unknown[]) => console.warn("[ContentServer]", ...args)
+  : (...args: unknown[]) => prodWarn("[ContentServer]", ...args);
+
 /** Warn logger for Image Handler. */
 export const imageHandlerWarn = isDev
   ? (...args: unknown[]) => console.warn("[imageHandler]", ...args)
@@ -227,6 +232,11 @@ export const workflowWarn = isDev
 export const contentSearchWarn = isDev
   ? (...args: unknown[]) => console.warn("[ContentSearch]", ...args)
   : (...args: unknown[]) => prodWarn("[ContentSearch]", ...args);
+
+/** Warn logger for Quick Open. */
+export const quickOpenWarn = isDev
+  ? (...args: unknown[]) => console.warn("[QuickOpen]", ...args)
+  : (...args: unknown[]) => prodWarn("[QuickOpen]", ...args);
 
 /** Warn logger for Menu Sync (startup menu rebuild). */
 export const menuSyncWarn = isDev

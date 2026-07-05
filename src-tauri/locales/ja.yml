@@ -160,7 +160,9 @@ menu:
 
   # === 表示メニュー ===
   view: "表示"
+  view.wysiwygMode: "WYSIWYGモード"
   view.sourceMode: "ソースコードモード"
+  view.markdownSplit: "Markdown分割ビュー"
   view.focusMode: "フォーカスモード"
   view.typewriterMode: "タイプライターモード"
   view.actualSize: "実際のサイズ"
@@ -175,6 +177,7 @@ menu:
   view.outline: "アウトラインの表示切替"
   view.fileExplorer: "ファイルエクスプローラーの表示切替"
   view.history: "履歴の表示切替"
+  view.knowledgeBase: "ナレッジベースの表示切替"
   view.terminal: "ターミナルの表示切替"
   view.checkMarkdown: "Markdown をチェック"
   view.lintNext: "次の問題"
@@ -182,6 +185,7 @@ menu:
   # === ウィンドウメニュー ===
   window: "ウィンドウ"
   window.bringAllToFront: "すべてのウィンドウを前面へ"
+  window.status: "ウィンドウの状態"
 
   # === ヘルプメニュー ===
   help: "ヘルプ"
@@ -260,6 +264,9 @@ errors:
   # === MCP ===
   mcp.spawnInProgress: "MCP サイドカーの起動がすでに進行中です"
   mcp.configMismatch: "設定の検証に失敗しました: 書き込まれた内容が想定と一致しません"
+
+window:
+  settings.title: "設定"
 
 cli:
   dialogTitle: "シェルコマンド"

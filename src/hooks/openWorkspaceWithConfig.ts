@@ -14,6 +14,10 @@ import { invoke } from "@tauri-apps/api/core";
 import { useWorkspaceStore, type WorkspaceConfig } from "@/stores/workspaceStore";
 import { workspaceError } from "@/utils/debug";
 import { maybeStripMacQuarantine } from "@/services/macos/macQuarantineNotice";
+import {
+  openOrActivateWorkspaceInstance,
+  type OpenWorkspaceInstanceOptions,
+} from "@/services/workspaces/workspaceInstanceActions";
 
 function isStringArray(v: unknown): v is string[] {
   return Array.isArray(v) && v.every((x) => typeof x === "string");
@@ -46,9 +50,24 @@ export function isValidWorkspaceConfig(raw: unknown): raw is WorkspaceConfig {
   );
 }
 
+/**
+ * Open the workspace store with built-in defaults (no on-disk config) and
+ * register/activate its rail instance. Shared fallback for both the malformed-
+ * payload and invoke-error branches so the two paths cannot drift.
+ */
+function openWorkspaceWithDefaults(
+  rootPath: string,
+  options: OpenWorkspaceInstanceOptions,
+): null {
+  useWorkspaceStore.getState().openWorkspace(rootPath);
+  openOrActivateWorkspaceInstance(rootPath, options);
+  return null;
+}
+
 /** Reads workspace config from disk and opens the workspace in the store; returns the config or null on failure. */
 export async function openWorkspaceWithConfig(
-  rootPath: string
+  rootPath: string,
+  options: OpenWorkspaceInstanceOptions = {},
 ): Promise<WorkspaceConfig | null> {
   // Fire-and-forget quarantine strip — settling does not block workspace open.
   // Awaited only conceptually: it's intentionally not blocking the read below.
@@ -63,14 +82,13 @@ export async function openWorkspaceWithConfig(
     // workspace store and onward to tab restore / file filtering.
     if (config !== null && !isValidWorkspaceConfig(config)) {
       workspaceError("Malformed workspace config payload; opening with defaults:", config);
-      useWorkspaceStore.getState().openWorkspace(rootPath);
-      return null;
+      return openWorkspaceWithDefaults(rootPath, options);
     }
     useWorkspaceStore.getState().openWorkspace(rootPath, config);
+    openOrActivateWorkspaceInstance(rootPath, options);
     return config;
   } catch (error) {
     workspaceError("Failed to load config:", error);
-    useWorkspaceStore.getState().openWorkspace(rootPath);
-    return null;
+    return openWorkspaceWithDefaults(rootPath, options);
   }
 }

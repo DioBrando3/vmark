@@ -12,10 +12,11 @@ import {
   type HeadingAlignment,
   type BlockFontSize,
   type HtmlRenderingMode,
+  type HtmlAllowlistLevel,
   type MarkdownPasteMode,
   type PasteMode,
 } from "@/stores/settingsStore";
-import { SettingRow, Toggle, SettingsGroup, Select } from "./components";
+import { SettingRow, Toggle, SettingsGroup, Select, FieldInput } from "./components";
 
 export function MarkdownSettings() {
   const { t } = useTranslation("settings");
@@ -66,6 +67,15 @@ export function MarkdownSettings() {
 
       {/* Layout */}
       <SettingsGroup title={t("markdown.group.layout")}>
+        <SettingRow
+          label={t("markdown.splitView.label")}
+          description={t("markdown.splitView.description")}
+        >
+          <Toggle
+            checked={markdown.splitViewByDefault}
+            onChange={(v) => updateSetting("splitViewByDefault", v)}
+          />
+        </SettingRow>
         <SettingRow
           label={t("markdown.blockFontSize.label")}
           description={t("markdown.blockFontSize.description")}
@@ -130,6 +140,15 @@ export function MarkdownSettings() {
             onChange={(v) => updateSetting("tableFitToWidth", v)}
           />
         </SettingRow>
+        <SettingRow
+          label={t("markdown.codeBlockLineNumbers.label")}
+          description={t("markdown.codeBlockLineNumbers.description")}
+        >
+          <Toggle
+            checked={markdown.codeBlockLineNumbers}
+            onChange={(v) => updateSetting("codeBlockLineNumbers", v)}
+          />
+        </SettingRow>
       </SettingsGroup>
 
       {/* HTML Rendering */}
@@ -146,6 +165,33 @@ export function MarkdownSettings() {
               { value: "sanitizedWithStyles", label: t("markdown.htmlRendering.sanitizedWithStyles") },
             ]}
             onChange={(v) => updateSetting("htmlRenderingMode", v)}
+          />
+        </SettingRow>
+        <SettingRow
+          label={t("markdown.htmlAllowlist.label")}
+          description={t("markdown.htmlAllowlist.description")}
+          disabled={markdown.htmlRenderingMode === "hidden"}
+        >
+          <Select<HtmlAllowlistLevel>
+            value={markdown.htmlAllowlistLevel}
+            disabled={markdown.htmlRenderingMode === "hidden"}
+            options={[
+              { value: "strict", label: t("markdown.htmlAllowlist.strict") },
+              { value: "extended", label: t("markdown.htmlAllowlist.extended") },
+            ]}
+            onChange={(v) => updateSetting("htmlAllowlistLevel", v)}
+          />
+        </SettingRow>
+        <SettingRow
+          label={t("markdown.htmlAllowlistCustom.label")}
+          description={t("markdown.htmlAllowlistCustom.description")}
+          disabled={markdown.htmlRenderingMode === "hidden"}
+        >
+          <FieldInput
+            value={markdown.htmlAllowlistCustomTags}
+            placeholder={t("markdown.htmlAllowlistCustom.placeholder")}
+            disabled={markdown.htmlRenderingMode === "hidden"}
+            onChange={(v) => updateSetting("htmlAllowlistCustomTags", v)}
           />
         </SettingRow>
       </SettingsGroup>
