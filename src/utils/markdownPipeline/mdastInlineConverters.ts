@@ -7,6 +7,8 @@
  * Key decisions:
  *   - Mark-based nodes (bold, italic, etc.) accumulate marks via `newMarks` array
  *     passed down to children, producing flat PM text with stacked marks
+ *   - Same-type marks are never stacked twice (addMarkOnce) — nested identical
+ *     emphasis is legal CommonMark but must collapse to one mark (#1102)
  *   - URLs are validated via isSafeUrl() to prevent XSS — unsafe URLs become about:blank
  *   - Missing mark types in schema are gracefully handled by falling through
  *     to convertChildren without adding the mark (schema flexibility)
@@ -34,21 +36,23 @@ import type { Subscript, Superscript, Highlight, Underline } from "./types";
 import { isSafeUrl } from "./urlValidation";
 
 /**
- * Helper type for converter functions.
- */
-export type InlineConverterFn<T> = (
-  schema: Schema,
-  node: T,
-  marks: Mark[],
-  convertChildren: (children: readonly Content[], marks: Mark[]) => PMNode[]
-) => PMNode | PMNode[] | null;
-
-/**
  * Convert a text node to ProseMirror text.
  */
 export function convertText(schema: Schema, node: Text, marks: Mark[]): PMNode | null {
   if (!node.value) return null;
   return schema.text(node.value, marks);
+}
+
+/**
+ * Append a mark unless one of the same type is already active.
+ *
+ * CommonMark allows nested identical emphasis — `**a **b** c**` parses as
+ * strong inside strong. Stacking `bold` twice on the inner text prevents
+ * ProseMirror from merging the run with its neighbors, and the split then
+ * re-serializes as growing `**` runs on every save (#1102).
+ */
+function addMarkOnce(marks: Mark[], mark: Mark): Mark[] {
+  return marks.some((m) => m.type === mark.type) ? marks : [...marks, mark];
 }
 
 /**
@@ -64,7 +68,7 @@ export function convertStrong(
   if (!markType) {
     return convertChildren(node.children as Content[], marks);
   }
-  const newMarks = [...marks, markType.create()];
+  const newMarks = addMarkOnce(marks, markType.create());
   return convertChildren(node.children as Content[], newMarks);
 }
 
@@ -81,7 +85,7 @@ export function convertEmphasis(
   if (!markType) {
     return convertChildren(node.children as Content[], marks);
   }
-  const newMarks = [...marks, markType.create()];
+  const newMarks = addMarkOnce(marks, markType.create());
   return convertChildren(node.children as Content[], newMarks);
 }
 
@@ -98,7 +102,7 @@ export function convertDelete(
   if (!markType) {
     return convertChildren(node.children as Content[], marks);
   }
-  const newMarks = [...marks, markType.create()];
+  const newMarks = addMarkOnce(marks, markType.create());
   return convertChildren(node.children as Content[], newMarks);
 }
 
@@ -110,11 +114,13 @@ export function convertInlineCode(
   node: InlineCode,
   marks: Mark[]
 ): PMNode | null {
+  // Empty code spans cannot become PM text nodes — schema.text("") throws.
+  if (!node.value) return null;
   const markType = schema.marks.code;
   if (!markType) {
     return schema.text(node.value, marks);
   }
-  const newMarks = [...marks, markType.create()];
+  const newMarks = addMarkOnce(marks, markType.create());
   return schema.text(node.value, newMarks);
 }
 
@@ -133,7 +139,13 @@ export function convertLink(
   }
   // Validate URL scheme to prevent XSS
   const href = isSafeUrl(node.url) ? node.url : "about:blank";
-  const newMarks = [...marks, markType.create({ href })];
+  const linkMark = markType.create({ href });
+  // Unlike identical emphasis (where the duplicate is simply dropped), a
+  // nested link carries data — and the inner link binds in CommonMark — so
+  // replace an active link mark instead of keeping the outer href.
+  const newMarks = marks.some((m) => m.type === markType)
+    ? marks.map((m) => (m.type === markType ? linkMark : m))
+    : [...marks, linkMark];
   return convertChildren(node.children as Content[], newMarks);
 }
 
@@ -200,7 +212,7 @@ export function convertSubscript(
   if (!markType) {
     return convertChildren(node.children as Content[], marks);
   }
-  const newMarks = [...marks, markType.create()];
+  const newMarks = addMarkOnce(marks, markType.create());
   return convertChildren(node.children as Content[], newMarks);
 }
 
@@ -217,7 +229,7 @@ export function convertSuperscript(
   if (!markType) {
     return convertChildren(node.children as Content[], marks);
   }
-  const newMarks = [...marks, markType.create()];
+  const newMarks = addMarkOnce(marks, markType.create());
   return convertChildren(node.children as Content[], newMarks);
 }
 
@@ -234,7 +246,7 @@ export function convertHighlight(
   if (!markType) {
     return convertChildren(node.children as Content[], marks);
   }
-  const newMarks = [...marks, markType.create()];
+  const newMarks = addMarkOnce(marks, markType.create());
   return convertChildren(node.children as Content[], newMarks);
 }
 
@@ -251,6 +263,6 @@ export function convertUnderline(
   if (!markType) {
     return convertChildren(node.children as Content[], marks);
   }
-  const newMarks = [...marks, markType.create()];
+  const newMarks = addMarkOnce(marks, markType.create());
   return convertChildren(node.children as Content[], newMarks);
 }

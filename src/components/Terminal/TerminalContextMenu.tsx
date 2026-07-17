@@ -4,8 +4,20 @@
  * Purpose: Right-click context menu for the terminal — copy, paste,
  * select all, clear, and reset-display operations.
  *
+ * User interactions:
+ *   - Arrow keys navigate menu items (disabled items are skipped);
+ *     Home/End jump to the first/last enabled item.
+ *   - Enter/Space activates the focused item.
+ *   - Escape, Tab, or click-outside closes the menu.
+ *
+ * Accessibility:
+ *   - Container is role="menu" with an aria-label; items are
+ *     role="menuitem" buttons using a roving tabindex (focused item
+ *     tabIndex=0, others -1). The first enabled item is focused on open.
+ *
  * Key decisions:
- *   - Copy is disabled when no text is selected (greyed out).
+ *   - Copy is disabled when no text is selected (greyed out via the shared
+ *     .context-menu-item:disabled rule).
  *   - Paste routes through `term.paste()` so xterm applies bracketed-paste
  *     wrapping when the app enabled it (multiline paste won't auto-execute, G2).
  *   - Reuses the FileExplorer ContextMenu.css for consistent macOS-style
@@ -20,12 +32,13 @@
  * @coordinates-with createTerminalInstance.ts — provides resetDisplay()
  * @module components/Terminal/TerminalContextMenu
  */
-import { useLayoutEffect, useRef, useCallback } from "react";
+import { useLayoutEffect, useRef, useState, useCallback } from "react";
 import { Copy, CopyMinus, ClipboardPaste, Square, Trash2, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { Terminal } from "@xterm/xterm";
 import { useDismissOnOutsideOrEscape } from "@/hooks/useDismissOnOutsideOrEscape";
+import { useMenuRovingFocus } from "@/hooks/useMenuRovingFocus";
 import { clipboardWarn } from "@/utils/debug";
 import { unwrapTerminalSelection } from "./unwrapSelection";
 import "../Sidebar/FileExplorer/ContextMenu.css";
@@ -56,7 +69,11 @@ export function TerminalContextMenu({
 }: TerminalContextMenuProps) {
   const { t } = useTranslation("statusbar");
   const menuRef = useRef<HTMLDivElement>(null);
-  const hasSelection = term.hasSelection();
+  // Snapshot selection state at open time so the Copy items keep a stable
+  // enabled/disabled state for the menu's lifetime — arrowing around (which
+  // re-renders) must not flip them. The action handler still checks
+  // `term.hasSelection()` live, so a selection cleared after open is caught.
+  const [hasSelection] = useState(() => term.hasSelection());
 
   const items: MenuItem[] = [
     { id: "copy", label: t("terminal.contextMenu.copy"), icon: <Copy size={14} />, disabled: !hasSelection },
@@ -69,8 +86,18 @@ export function TerminalContextMenu({
       : []),
   ];
 
-  // Close on click outside (capture phase) and Escape (IME-aware).
-  useDismissOnOutsideOrEscape(true, menuRef, onClose);
+  // Close and return focus to the terminal — used by keyboard dismissal
+  // (Escape/Tab) and after every action, so keyboard users never lose
+  // terminal input. Click-outside does NOT refocus (the user clicked
+  // elsewhere on purpose), so it uses the bare `onClose`.
+  const closeAndFocus = useCallback(() => {
+    onClose();
+    term.focus();
+  }, [onClose, term]);
+
+  // Click-outside only (capture phase); Escape is owned by the roving hook
+  // so it can refocus the terminal — unlike an outside click.
+  useDismissOnOutsideOrEscape(true, menuRef, onClose, { escape: false });
 
   // Adjust position to keep in viewport (useLayoutEffect to avoid flicker)
   useLayoutEffect(() => {
@@ -151,23 +178,36 @@ export function TerminalContextMenu({
     [term, onResetDisplay, onClose],
   );
 
+  const { handleKeyDown, registerItem, itemProps } = useMenuRovingFocus<MenuItem>({
+    items,
+    onActivate: (item) => void handleAction(item.id),
+    onDismiss: closeAndFocus,
+  });
+
   return (
     <div
       ref={menuRef}
       className="context-menu"
       style={{ left: position.x, top: position.y }}
+      role="menu"
+      aria-label={t("terminal.contextMenu.ariaLabel")}
+      onKeyDown={handleKeyDown}
     >
-      {items.map((item) => (
+      {items.map((item, index) => (
         <div key={item.id}>
           {item.separatorBefore && <div className="context-menu-separator" />}
-          <div
+          <button
+            ref={(node) => registerItem(index, node)}
+            type="button"
+            role="menuitem"
             className="context-menu-item"
-            style={{ opacity: item.disabled ? 0.4 : 1, pointerEvents: item.disabled ? "none" : "auto" }}
+            disabled={item.disabled}
             onClick={() => handleAction(item.id)}
+            {...itemProps(index)}
           >
             <span className="context-menu-item-icon">{item.icon}</span>
             <span className="context-menu-item-label">{item.label}</span>
-          </div>
+          </button>
         </div>
       ))}
     </div>

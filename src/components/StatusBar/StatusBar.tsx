@@ -4,6 +4,8 @@
  * Purpose: Bottom bar combining tab strip, word/character counts, auto-save indicator,
  * AI status indicator, MCP status, terminal toggle, and editor mode toggle into a
  * single horizontal bar. Auto-shows when AI has active status (hasActiveStatus).
+ * Browser pages are grouped into one bottom-level Browser workspace tab. Browser
+ * navigation and webpage tabs live in the dedicated top BrowserChrome surface.
  *
  * User interactions:
  *   - Click a tab pill to switch documents; middle-click or X to close
@@ -29,12 +31,13 @@
  * @coordinates-with Tabs/TabContextMenu.tsx — right-click menu for tabs
  * @module components/StatusBar/StatusBar
  */
-import { useCallback, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { useCallback, useRef, useState, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { PanelLeft } from "lucide-react";
 import { useUIStore } from "@/stores/uiStore";
 import { useWindowLabel, useIsDocumentWindow } from "@/contexts/WindowContext";
 import { useTabStore, type Tab as TabType } from "@/stores/tabStore";
+import { useBrowserWorkspaceState } from "@/components/Browser/useBrowserWorkspaceState";
 import { useDocumentStore, useLargeFileSessionStore } from "@/stores/documentStore";
 import { closeTabWithDirtyCheck } from "@/hooks/useTabOperations";
 import { activateTabInFocusedPane } from "@/services/navigation/activateTabInFocusedPane";
@@ -61,35 +64,8 @@ import { openSettingsWindow } from "@/services/navigation/settingsWindow";
 import { StatusBarRight } from "./StatusBarRight";
 import { useStatusBarTabDrag } from "./useStatusBarTabDrag";
 import { useQuitFeedback } from "./useQuitFeedback";
+import { ARIA_LIVE_STYLE, preventSelectAllOnButtons } from "./statusBarHelpers";
 import "./StatusBar.css";
-
-// Stable empty array to avoid creating new reference on each render.
-const EMPTY_TABS: never[] = [];
-
-const ARIA_LIVE_STYLE = {
-  position: "absolute",
-  width: 1,
-  height: 1,
-  padding: 0,
-  margin: -1,
-  overflow: "hidden",
-  clip: "rect(0, 0, 0, 0)",
-  whiteSpace: "nowrap",
-  border: 0,
-} as const;
-
-/**
- * Prevent Cmd+A from selecting all page content when focus is on non-input elements.
- * Only prevents when active element is a button or similar non-text element.
- */
-function preventSelectAllOnButtons(event: KeyboardEvent) {
-  if ((event.metaKey || event.ctrlKey) && event.key === "a") {
-    const target = event.target as HTMLElement;
-    if (target.tagName !== "INPUT" && target.tagName !== "TEXTAREA") {
-      event.preventDefault();
-    }
-  }
-}
 
 /** Bottom bar combining tab strip, word/char counts, auto-save indicator, AI status, and mode toggle. */
 export function StatusBar() {
@@ -116,6 +92,8 @@ export function StatusBar() {
   const aiHasActiveStatus = useAiInvocationStore((state) => state.hasActiveStatus);
   const { running: mcpRunning, loading: mcpLoading, error: mcpError } = useMcpServer();
   const mcpClients = useMcpClients(mcpRunning);
+  const { activeTabId, browserWorkspace } = useBrowserWorkspaceState();
+  const activeBrowserTabId = browserWorkspace.activeBrowserPageId;
 
   const openMcpSettings = useCallback(() => openSettingsWindow("integrations"), []);
   const handleRetryAi = useCallback(() => {
@@ -124,8 +102,6 @@ export function StatusBar() {
   }, []);
   const showAutoSavePaused = (isMissing || isDivergent) && autoSaveEnabled;
 
-  const tabs = useTabStore((state) => (isDocumentWindow ? state.tabs[windowLabel] ?? EMPTY_TABS : EMPTY_TABS));
-  const activeTabId = useTabStore((state) => (isDocumentWindow ? state.activeTabId[windowLabel] : null));
   /* v8 ignore next 3 -- @preserve defensive `!activeTabId` fallback is not exercised — the StatusBar always has an active tab in tests */
   const activeTabForcedSource = useLargeFileSessionStore((s) =>
     activeTabId ? Boolean(s.forcedSourceTabs[activeTabId]) : false
@@ -200,18 +176,20 @@ export function StatusBar() {
     ariaAnnouncement,
     handleTabKeyDown,
   } = useStatusBarTabDrag({
-    tabs,
+    tabs: browserWorkspace.documentTabs,
     windowLabel,
     tabBarRef: tabDragScopeRef,
     onActivateTab: handleActivateTab,
   });
 
-  const dragTab = dragTabId ? tabs.find((tab) => tab.id === dragTabId) ?? null : null;
+  const dragTab = dragTabId ? browserWorkspace.documentTabs.find((tab) => tab.id === dragTabId) ?? null : null;
 
-  const showTabs = isDocumentWindow && tabs.length >= 1;
+  const showTabs = isDocumentWindow && (browserWorkspace.documentTabs.length >= 1 || browserWorkspace.browserPages.length >= 1);
   const showNewTabButton = isDocumentWindow;
 
-  if (!statusBarVisible && !aiHasActiveStatus) return null;
+  // A browser tab keeps the workspace bar even when hidden (F7): it remains
+  // the user's route back to the Browser workspace and its page tabs.
+  if (!statusBarVisible && !aiHasActiveStatus && !activeBrowserTabId) return null;
 
   return (
     <>
@@ -220,7 +198,7 @@ export function StatusBar() {
         role="contentinfo"
         onKeyDown={preventSelectAllOnButtons}
       >
-        <div className="status-bar">
+        <div className={`status-bar${activeBrowserTabId ? " status-bar--browser" : ""}`}>
           <div className="status-bar-left" ref={tabDragScopeRef}>
             {!sidebarVisible && isDocumentWindow && (
               <button
@@ -239,8 +217,8 @@ export function StatusBar() {
             <FileLoadIndicator />
             <SourceModeUpgrade />
             <StatusBarTabStrip
-              tabs={tabs}
-              activeTabId={activeTabId}
+              tabs={browserWorkspace.documentTabs}
+              activeTabId={activeBrowserTabId ? null : activeTabId}
               showTabs={showTabs}
               showNewTabButton={showNewTabButton}
               isDragging={isDragging}
@@ -256,6 +234,13 @@ export function StatusBar() {
               onContextMenu={handleContextMenu}
               onTabKeyDown={handleTabKeyDown}
               onNewTab={handleNewTab}
+              browserWorkspaceCount={browserWorkspace.browserPages.length}
+              browserWorkspaceActive={browserWorkspace.browserWorkspaceActive}
+              onActivateBrowserWorkspace={() => {
+                const pageId = browserWorkspace.activeBrowserPageId
+                  ?? browserWorkspace.browserReturnPageId;
+                if (pageId) activateTabInFocusedPane(windowLabel, pageId);
+              }}
             />
 
             {quitMessage && (
@@ -265,37 +250,39 @@ export function StatusBar() {
             )}
           </div>
 
-          <StatusBarRight
-            aiRunning={aiRunning}
-            elapsedSeconds={aiElapsed}
-            aiError={aiError}
-            showSuccess={aiShowSuccess}
-            onCancelAi={() => useAiInvocationStore.getState().cancel()}
-            onRetryAi={handleRetryAi}
-            onDismissError={() => useAiInvocationStore.getState().dismissError()}
-            mcpRunning={mcpRunning}
-            mcpLoading={mcpLoading}
-            mcpError={mcpError}
-            mcpClients={mcpClients}
-            openMcpSettings={openMcpSettings}
-            showAutoSavePaused={showAutoSavePaused}
-            isDivergent={isDivergent}
-            showAutoSave={showAutoSave}
-            lastAutoSave={lastAutoSave}
-            autoSaveTime={autoSaveTime}
-            terminalVisible={terminalVisible}
-            terminalShortcut={terminalShortcut}
-            saveShortcut={saveShortcut}
-            sourceMode={sourceMode}
-            sourceModeShortcut={sourceModeShortcut}
-            onToggleSourceMode={() => toggleSourceModeWithCheckpoint(windowLabel)}
-            modeToggleHidden={modeToggleHidden}
-            readOnly={readOnly}
-            readOnlyShortcut={readOnlyShortcut}
-            onToggleReadOnly={() => {
-              if (activeTabId) toggleDocumentReadOnlyWithOwnership(activeTabId);
-            }}
-          />
+          {!activeBrowserTabId && (
+            <StatusBarRight
+              aiRunning={aiRunning}
+              elapsedSeconds={aiElapsed}
+              aiError={aiError}
+              showSuccess={aiShowSuccess}
+              onCancelAi={() => useAiInvocationStore.getState().cancel()}
+              onRetryAi={handleRetryAi}
+              onDismissError={() => useAiInvocationStore.getState().dismissError()}
+              mcpRunning={mcpRunning}
+              mcpLoading={mcpLoading}
+              mcpError={mcpError}
+              mcpClients={mcpClients}
+              openMcpSettings={openMcpSettings}
+              showAutoSavePaused={showAutoSavePaused}
+              isDivergent={isDivergent}
+              showAutoSave={showAutoSave}
+              lastAutoSave={lastAutoSave}
+              autoSaveTime={autoSaveTime}
+              terminalVisible={terminalVisible}
+              terminalShortcut={terminalShortcut}
+              saveShortcut={saveShortcut}
+              sourceMode={sourceMode}
+              sourceModeShortcut={sourceModeShortcut}
+              onToggleSourceMode={() => toggleSourceModeWithCheckpoint(windowLabel)}
+              modeToggleHidden={modeToggleHidden}
+              readOnly={readOnly}
+              readOnlyShortcut={readOnlyShortcut}
+              onToggleReadOnly={() => {
+                if (activeTabId) toggleDocumentReadOnlyWithOwnership(activeTabId);
+              }}
+            />
+          )}
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 {
   "openSidebar": "Open Sidebar",
   "newTabTitle": "New Tab",
+  "browserWorkspace": "Browser",
   "autoSavePaused": "Auto-save paused",
   "autoSavePausedTitle": "Auto-save paused: file was deleted from disk. Save manually with {{shortcut}}.",
   "divergent": "Divergent",
@@ -69,6 +70,7 @@
   "terminal.restartSession": "Restart",
   "terminal.swapPosition": "Swap position",
   "terminal.notify.attention": "{{name}} needs attention",
+  "terminal.contextMenu.ariaLabel": "Terminal actions",
   "terminal.contextMenu.copy": "Copy",
   "terminal.contextMenu.copyUnwrapped": "Copy Unwrapped",
   "terminal.contextMenu.paste": "Paste",

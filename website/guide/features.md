@@ -252,6 +252,12 @@ Mermaid diagram support with live preview:
 - Live preview panel in Source mode (drag, resize, zoom)
 - [Learn more →](/guide/mermaid)
 
+Graphviz DOT support with the same preview surfaces:
+
+- ` ```dot ` and ` ```graphviz ` fenced blocks render locally (WASM)
+- Pan, zoom, and PNG export like Mermaid diagrams
+- [Learn more →](/guide/graphviz)
+
 ### SVG Graphics
 
 Render raw SVG inline via ` ```svg ` code blocks:
@@ -344,6 +350,18 @@ A formatting toolbar anchored at the bottom of the editor, providing quick acces
 - **Two-step Escape:** If a dropdown menu is open, `Escape` closes the menu first. Press `Escape` again to close the entire toolbar.
 - **Session memory:** The toolbar remembers which button was last focused during the current session, so re-focusing picks up where you left off.
 - **AI Genies shortcut:** The toolbar includes an AI Genies button that opens the genie picker (`Mod + Y`).
+
+## Editor Context Menu
+
+Right-click anywhere in the editor (WYSIWYG or Source mode) to open a context menu with common actions.
+
+- **Clipboard:** Cut, Copy, Paste, and Select All. On macOS these use the native clipboard pipeline, so pasting rich content (e.g. HTML copied from a browser) keeps its formatting — identical to `Mod + V`.
+- **Inline formatting:** Bold, Italic, Strikethrough, and Inline Code, with checkmarks showing the active marks at the cursor.
+- **Block operations:** Heading level and List type submenus, Blockquote, and Code Block — checkmarks reflect the current block.
+- **Links:** Insert Link on plain text; on an existing link the section swaps to Edit Link, Copy Link, and Remove Link.
+- **Context aware:** Inside tables the dedicated table menu appears instead; right-clicking an image opens the image menu; inside code blocks only clipboard actions are offered. Non-Markdown files (JSON, YAML, …) get a reduced clipboard-only menu.
+- **Selection handling:** Right-clicking inside a selection keeps it; right-clicking elsewhere moves the cursor there first (macOS convention).
+- **Keyboard:** Arrow keys navigate (disabled items are skipped), `Right`/`Left` enter and leave submenus, `Escape` closes the submenu first and then the menu. Shortcut hints reflect your custom key bindings.
 
 ## Export Options
 
@@ -500,7 +518,7 @@ VMark automatically checks for updates and can download and install them in-app:
 - Quick file switching
 - Recent files tracking
 - Window size and position remembered across sessions
-- Window Status panel — see every open window's live Claude Code / AI status and jump straight to the one that needs you
+- Window Status panel — see every open window's live Claude Code / AI status and jump straight to the one that needs you; pin it to keep it open while you jump between windows (open/pin state is remembered per window)
 
 [Learn more →](/guide/workspace-management)
 

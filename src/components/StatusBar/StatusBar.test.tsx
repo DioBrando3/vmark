@@ -81,6 +81,7 @@ vi.mock("@/components/Tabs/TabContextMenu", () => ({
 import { StatusBar } from "./StatusBar";
 import { useUIStore } from "@/stores/uiStore";
 import { useShortcutsStore, formatKeyForDisplay } from "@/stores/settingsStore";
+import { useTabStore } from "@/stores/tabStore";
 
 describe("StatusBar accessibility", () => {
   beforeEach(() => {
@@ -111,5 +112,53 @@ describe("StatusBar accessibility", () => {
     expect(display).not.toBe("");
     expect(toggle.getAttribute("title")).toContain(display);
     expect(toggle.getAttribute("title")).toBe(toggle.getAttribute("aria-label"));
+  });
+});
+
+describe("StatusBar — browser workspace (WI-S1.3)", () => {
+  beforeEach(() => {
+    useUIStore.setState({ sidebarVisible: true, statusBarVisible: true });
+    useTabStore.setState({
+      tabs: {},
+      activeTabId: {},
+      untitledCounter: 0,
+      closedTabs: {},
+    });
+  });
+
+  it("shows one Browser workspace tab and hides editor controls when a browser page is active", () => {
+    const id = useTabStore.getState().createBrowserTab("main", "https://example.com/", "Ex");
+    useTabStore.getState().setActiveTab("main", id);
+    render(<StatusBar />);
+    expect(screen.getByRole("tab", { name: "Browser" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Browser" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByTestId("status-bar-right")).toBeNull();
+    expect(document.querySelector(".status-bar--browser")).toBeInTheDocument();
+  });
+
+  it("shows the editor controls (not the omnibox) when a document tab is active", () => {
+    const id = useTabStore.getState().createTab("main", null);
+    useTabStore.getState().setActiveTab("main", id);
+    render(<StatusBar />);
+    expect(screen.getByTestId("status-bar-right")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  // The browser workspace remains discoverable when the user hides the normal
+  // status content; its top chrome owns navigation independently.
+  it("still renders the Browser workspace tab when the status bar is hidden (F7)", () => {
+    useUIStore.setState({ sidebarVisible: true, statusBarVisible: false });
+    const id = useTabStore.getState().createBrowserTab("main", "https://example.com/", "Ex");
+    useTabStore.getState().setActiveTab("main", id);
+    render(<StatusBar />);
+    expect(screen.getByRole("tab", { name: "Browser" })).toBeInTheDocument();
+  });
+
+  it("still hides the bar for a document tab when the status bar is hidden (F7)", () => {
+    useUIStore.setState({ sidebarVisible: true, statusBarVisible: false });
+    const id = useTabStore.getState().createTab("main", null);
+    useTabStore.getState().setActiveTab("main", id);
+    const { container } = render(<StatusBar />);
+    expect(container).toBeEmptyDOMElement();
   });
 });

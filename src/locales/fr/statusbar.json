@@ -1,6 +1,7 @@
 {
   "openSidebar": "Ouvrir la barre latérale",
   "newTabTitle": "Nouvel onglet",
+  "browserWorkspace": "Navigateur",
   "autoSavePaused": "Enregistrement automatique suspendu",
   "autoSavePausedTitle": "Enregistrement automatique suspendu : le fichier a été supprimé du disque. Enregistrez manuellement avec {{shortcut}}.",
   "divergent": "Divergent",
@@ -68,6 +69,7 @@
   "terminal.restartSession": "Redémarrer",
   "terminal.swapPosition": "Permuter la position",
   "terminal.notify.attention": "{{name}} demande votre attention",
+  "terminal.contextMenu.ariaLabel": "Actions du terminal",
   "terminal.contextMenu.copy": "Copier",
   "terminal.contextMenu.copyUnwrapped": "Copier sans retours à la ligne",
   "terminal.contextMenu.paste": "Coller",

@@ -1,6 +1,6 @@
 [package]
 name = "vmark"
-version = "0.8.26"
+version = "0.9.1"
 description = "The plain-text workspace where humans and AI collaborate"
 authors = ["Xiaolai"]
 license = "ISC"
@@ -19,7 +19,7 @@ tauri-plugin-opener = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-clipboard-manager = "2"
-tauri-plugin-mcp-bridge = "0.8"
+tauri-plugin-mcp-bridge = "0.12"
 tauri-plugin-shell = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
@@ -31,9 +31,14 @@ serde_json = "1"
 uuid = { version = "1", features = ["v4"] }
 regex = "1"
 urlencoding = "2"
+# WHATWG-spec URL parser — the same spec the browser's `URL` implements, so the
+# Rust origin guard (browser/origin_guard.rs) and the TS spec it mirrors parse
+# identically instead of drifting. Already in the tree via tauri; promoting it to
+# a direct dependency adds no new package to the lockfile.
+url = "2"
 notify = { version = "8", default-features = false, features = ["macos_fsevent"] }
 tokio = { version = "1", features = ["sync", "macros", "rt-multi-thread", "process", "io-util", "time"] }
-tokio-tungstenite = "0.28"
+tokio-tungstenite = "0.30"
 tokio-util = { version = "0.7", features = ["rt"] }
 futures-util = "0.3"
 portable-pty = "0.9"
@@ -45,7 +50,7 @@ tauri-plugin-window-state = "2"
 tauri-plugin-store = "2"
 tempfile = "3"
 sha2 = "0.10"
-ed25519-dalek = "2"
+ed25519-dalek = "3"
 base64 = "0.22"
 gethostname = "1.1"
 rust-i18n = "4"
@@ -63,9 +68,10 @@ libc = "0.2"
 xattr = "1"
 keyring = { version = "3", features = ["apple-native"] }
 objc2 = "0.6"
-objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSMenu", "NSMenuItem", "NSImage", "NSResponder", "NSDocumentController", "NSPrintInfo", "NSPrintOperation", "NSView", "NSWindow", "NSGraphics"] }
-objc2-foundation = { version = "0.3", features = ["NSString", "NSURL", "NSData", "NSDate", "NSRunLoop", "NSError", "NSDictionary", "NSProcessInfo"] }
-objc2-web-kit = { version = "0.3", features = ["WKWebView", "WKWebViewConfiguration", "WKNavigation", "WKNavigationDelegate", "WKPDFConfiguration", "block2", "objc2-core-foundation"] }
+block2 = "0.6" # SPIKE-1/5 probe (throwaway) — remove with src/spike_embed.rs before WI-1.2
+objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSMenu", "NSMenuItem", "NSImage", "NSImageRep", "NSBitmapImageRep", "NSResponder", "NSDocumentController", "NSPrintInfo", "NSPrintOperation", "NSView", "NSWindow", "NSGraphics", "NSEvent"] }
+objc2-foundation = { version = "0.3", features = ["NSString", "NSURL", "NSURLRequest", "NSData", "NSDate", "NSRunLoop", "NSError", "NSDictionary", "NSValue", "NSKeyValueObserving", "NSProcessInfo", "NSUserDefaults", "NSArray", "NSUUID", "NSHTTPCookie"] }
+objc2-web-kit = { version = "0.3", features = ["WKWebView", "WKWebViewConfiguration", "WKNavigation", "WKNavigationDelegate", "WKUIDelegate", "WKNavigationAction", "WKWindowFeatures", "WKFrameInfo", "WKPDFConfiguration", "WKSnapshotConfiguration", "WKWebsiteDataStore", "WKUserScript", "WKUserContentController", "WKContentWorld", "WKHTTPCookieStore", "block2", "objc2-core-foundation"] }
 objc2-pdf-kit = { version = "0.3", features = ["PDFDocument", "PDFOutline", "PDFPage", "PDFDestination"] }
 objc2-core-foundation = { version = "0.3", features = ["CFRunLoop", "CFString"] }
 

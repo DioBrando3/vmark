@@ -1,6 +1,7 @@
 {
   "openSidebar": "Seitenleiste öffnen",
   "newTabTitle": "Neuer Tab",
+  "browserWorkspace": "Browser",
   "autoSavePaused": "Automatisches Speichern pausiert",
   "autoSavePausedTitle": "Automatisches Speichern pausiert: Datei wurde vom Datenträger gelöscht. Manuell speichern mit {{shortcut}}.",
   "divergent": "Abweichend",
@@ -68,6 +69,7 @@
   "terminal.restartSession": "Neu starten",
   "terminal.swapPosition": "Position tauschen",
   "terminal.notify.attention": "{{name}} braucht Aufmerksamkeit",
+  "terminal.contextMenu.ariaLabel": "Terminal-Aktionen",
   "terminal.contextMenu.copy": "Kopieren",
   "terminal.contextMenu.copyUnwrapped": "Ohne Umbruch kopieren",
   "terminal.contextMenu.paste": "Einfügen",

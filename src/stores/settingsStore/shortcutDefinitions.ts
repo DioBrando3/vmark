@@ -58,6 +58,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
   // === Blocks ===
   { id: "mathBlock", label: "Math Block", category: "blocks", defaultKey: "Alt-Mod-Shift-m", menuId: "math-block", description: "Insert display math block ($$...$$)" },
   { id: "diagram", label: "Insert Diagram", category: "blocks", defaultKey: "Alt-Mod-Shift-d", menuId: "diagram", description: "Insert Mermaid diagram" },
+  { id: "graphvizDiagram", label: "Insert Graphviz Diagram", category: "blocks", defaultKey: "", menuId: "graphviz-diagram", description: "Insert Graphviz DOT diagram" },
   { id: "mindmap", label: "Insert Mindmap", category: "blocks", defaultKey: "Alt-Mod-Shift-k", menuId: "mindmap", description: "Insert Markmap mindmap" },
   { id: "heading1", label: "Heading 1", category: "blocks", defaultKey: "Mod-1", menuId: "heading-1" },
   { id: "heading2", label: "Heading 2", category: "blocks", defaultKey: "Mod-2", menuId: "heading-2" },
@@ -152,6 +153,10 @@ export const DEFAULT_SHORTCUTS: ShortcutDefinition[] = [
 
   // === File ===
   { id: "newTab", label: "New Tab", category: "file", defaultKey: "Mod-t", description: "Create a new tab", scope: "global" },
+  // Native menu item (WI-S0.5), not just a DOM shortcut: once the browser's WKWebView
+  // is first responder it eats the key event, so a frontend-only binding cannot fire
+  // while you are actually browsing. The item is disabled until `browser.enabled` is on.
+  { id: "newBrowserTab", label: "New Browser Tab", category: "file", defaultKey: "Alt-Mod-Shift-b", menuId: "new-browser-tab", scope: "global", description: "Open a new embedded browser tab (requires the browser feature enabled)" },
   { id: "nextTab", label: "Next Tab", category: "view", defaultKey: "Mod-Shift-]", description: "Switch to the next tab", scope: "global" },
   { id: "prevTab", label: "Previous Tab", category: "view", defaultKey: "Mod-Shift-[", description: "Switch to the previous tab", scope: "global" },
   { id: "newFile", label: "New File", category: "file", defaultKey: "Mod-n", menuId: "new", scope: "global" },

@@ -49,34 +49,6 @@ describe("TerminalContextMenu", () => {
 
   it("disables Copy when no selection", () => {
     const term = makeTerm({ hasSelection: vi.fn(() => false) });
-    const { container } = render(
-      <TerminalContextMenu
-        position={{ x: 100, y: 100 }}
-        term={term}
-        onClose={onClose}
-      />,
-    );
-
-    const copyItem = container.querySelector(".context-menu-item");
-    expect(copyItem).toHaveStyle({ opacity: "0.4" });
-  });
-
-  it("enables Copy when selection exists", () => {
-    const term = makeTerm({ hasSelection: vi.fn(() => true) });
-    const { container } = render(
-      <TerminalContextMenu
-        position={{ x: 100, y: 100 }}
-        term={term}
-        onClose={onClose}
-      />,
-    );
-
-    const copyItem = container.querySelector(".context-menu-item");
-    expect(copyItem).toHaveStyle({ opacity: "1" });
-  });
-
-  it("closes on Escape", () => {
-    const term = makeTerm();
     render(
       <TerminalContextMenu
         position={{ x: 100, y: 100 }}
@@ -85,8 +57,36 @@ describe("TerminalContextMenu", () => {
       />,
     );
 
-    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.getByRole("menuitem", { name: "Copy" })).toBeDisabled();
+  });
+
+  it("enables Copy when selection exists", () => {
+    const term = makeTerm({ hasSelection: vi.fn(() => true) });
+    render(
+      <TerminalContextMenu
+        position={{ x: 100, y: 100 }}
+        term={term}
+        onClose={onClose}
+      />,
+    );
+
+    expect(screen.getByRole("menuitem", { name: "Copy" })).toBeEnabled();
+  });
+
+  it("closes on Escape and returns focus to the terminal", () => {
+    const term = makeTerm();
+    const { container } = render(
+      <TerminalContextMenu
+        position={{ x: 100, y: 100 }}
+        term={term}
+        onClose={onClose}
+      />,
+    );
+
+    const menu = container.querySelector(".context-menu") as HTMLElement;
+    fireEvent.keyDown(menu, { key: "Escape" });
     expect(onClose).toHaveBeenCalled();
+    expect(term.focus).toHaveBeenCalled();
   });
 
   it("closes on click outside", () => {
@@ -121,7 +121,7 @@ describe("TerminalContextMenu", () => {
   it("does not close on IME keydown event", () => {
     vi.mocked(isImeKeyEvent).mockReturnValueOnce(true);
     const term = makeTerm();
-    render(
+    const { container } = render(
       <TerminalContextMenu
         position={{ x: 100, y: 100 }}
         term={term}
@@ -129,7 +129,8 @@ describe("TerminalContextMenu", () => {
       />,
     );
 
-    fireEvent.keyDown(document, { key: "Escape", isComposing: true });
+    const menu = container.querySelector(".context-menu") as HTMLElement;
+    fireEvent.keyDown(menu, { key: "Escape", isComposing: true });
     expect(onClose).not.toHaveBeenCalled();
   });
 
@@ -410,9 +411,230 @@ describe("TerminalContextMenu", () => {
     });
   });
 
-  it("does not close on non-Escape key", () => {
+  describe("accessibility & keyboard navigation", () => {
+    it("exposes an ARIA menu with menuitem buttons", () => {
+      const term = makeTerm({ hasSelection: vi.fn(() => true) });
+      render(
+        <TerminalContextMenu position={{ x: 100, y: 100 }} term={term} onClose={onClose} />,
+      );
+
+      expect(screen.getByRole("menu", { name: "Terminal actions" })).toBeInTheDocument();
+      // Paste / Select All / Clear are always present as menuitems.
+      expect(screen.getByRole("menuitem", { name: "Paste" })).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: "Select All" })).toBeInTheDocument();
+    });
+
+    it("focuses the first enabled item on open (Copy disabled → Paste first)", () => {
+      const term = makeTerm({ hasSelection: vi.fn(() => false) });
+      render(
+        <TerminalContextMenu position={{ x: 100, y: 100 }} term={term} onClose={onClose} />,
+      );
+
+      expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Paste" }));
+    });
+
+    it("focuses Copy first when a selection exists", () => {
+      const term = makeTerm({ hasSelection: vi.fn(() => true) });
+      render(
+        <TerminalContextMenu position={{ x: 100, y: 100 }} term={term} onClose={onClose} />,
+      );
+
+      expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Copy" }));
+    });
+
+    it("ArrowDown moves focus, skipping disabled items", () => {
+      const term = makeTerm({ hasSelection: vi.fn(() => false) });
+      const { container } = render(
+        <TerminalContextMenu position={{ x: 100, y: 100 }} term={term} onClose={onClose} />,
+      );
+      const menu = container.querySelector(".context-menu") as HTMLElement;
+
+      // Starts on Paste (Copy + Copy Unwrapped disabled). ArrowDown → Select All.
+      fireEvent.keyDown(menu, { key: "ArrowDown" });
+      expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Select All" }));
+    });
+
+    it("ArrowUp from the first enabled item wraps to the last, skipping disabled", () => {
+      const term = makeTerm({ hasSelection: vi.fn(() => false) });
+      const { container } = render(
+        <TerminalContextMenu position={{ x: 100, y: 100 }} term={term} onClose={onClose} />,
+      );
+      const menu = container.querySelector(".context-menu") as HTMLElement;
+
+      // On Paste; ArrowUp wraps to Clear (last enabled — no Reset Display here).
+      fireEvent.keyDown(menu, { key: "ArrowUp" });
+      expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Clear" }));
+    });
+
+    it("Home and End jump to the first and last enabled items", () => {
+      const term = makeTerm({ hasSelection: vi.fn(() => true) });
+      const { container } = render(
+        <TerminalContextMenu position={{ x: 100, y: 100 }} term={term} onClose={onClose} />,
+      );
+      const menu = container.querySelector(".context-menu") as HTMLElement;
+
+      fireEvent.keyDown(menu, { key: "End" });
+      expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Clear" }));
+      fireEvent.keyDown(menu, { key: "Home" });
+      expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Copy" }));
+    });
+
+    it("Enter activates the focused item", async () => {
+      const term = makeTerm({ hasSelection: vi.fn(() => false) });
+      const { container } = render(
+        <TerminalContextMenu position={{ x: 100, y: 100 }} term={term} onClose={onClose} />,
+      );
+      const menu = container.querySelector(".context-menu") as HTMLElement;
+
+      // Focus starts on Paste; move to Select All and activate.
+      fireEvent.keyDown(menu, { key: "ArrowDown" });
+      fireEvent.keyDown(menu, { key: "Enter" });
+      expect(term.selectAll).toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalled();
+    });
+
+    it("Space activates the focused item", () => {
+      const term = makeTerm({ hasSelection: vi.fn(() => false) });
+      const { container } = render(
+        <TerminalContextMenu position={{ x: 100, y: 100 }} term={term} onClose={onClose} />,
+      );
+      const menu = container.querySelector(".context-menu") as HTMLElement;
+
+      fireEvent.keyDown(menu, { key: "ArrowDown" }); // Select All
+      fireEvent.keyDown(menu, { key: "ArrowDown" }); // Clear
+      fireEvent.keyDown(menu, { key: " " });
+      expect(term.clear).toHaveBeenCalled();
+    });
+
+    it("Tab closes the menu and returns focus to the terminal", () => {
+      const term = makeTerm();
+      const { container } = render(
+        <TerminalContextMenu position={{ x: 100, y: 100 }} term={term} onClose={onClose} />,
+      );
+      const menu = container.querySelector(".context-menu") as HTMLElement;
+
+      fireEvent.keyDown(menu, { key: "Tab" });
+      expect(onClose).toHaveBeenCalled();
+      expect(term.focus).toHaveBeenCalled();
+    });
+
+    it("activates Copy via keyboard (async clipboard path)", async () => {
+      const term = makeTerm({
+        hasSelection: vi.fn(() => true),
+        getSelection: vi.fn(() => "picked  "),
+      });
+      const { container } = render(
+        <TerminalContextMenu position={{ x: 100, y: 100 }} term={term} onClose={onClose} />,
+      );
+      const menu = container.querySelector(".context-menu") as HTMLElement;
+
+      // Focus opens on Copy (selection present); activate it with Enter.
+      expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Copy" }));
+      fireEvent.keyDown(menu, { key: "Enter" });
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith("picked"));
+      expect(onClose).toHaveBeenCalled();
+      expect(term.focus).toHaveBeenCalled();
+    });
+
+    it("activates Copy Unwrapped via keyboard", async () => {
+      const term = makeTerm({
+        hasSelection: vi.fn(() => true),
+        getSelection: vi.fn(() => "wrapped\ntext"),
+      });
+      const { container } = render(
+        <TerminalContextMenu position={{ x: 100, y: 100 }} term={term} onClose={onClose} />,
+      );
+      const menu = container.querySelector(".context-menu") as HTMLElement;
+
+      fireEvent.keyDown(menu, { key: "ArrowDown" }); // Copy → Copy Unwrapped
+      fireEvent.keyDown(menu, { key: " " });
+      await waitFor(() => expect(writeText).toHaveBeenCalledWith("wrapped text"));
+    });
+
+    it("activates Paste via keyboard, routed through term.paste", async () => {
+      vi.mocked(readText).mockResolvedValue("keyboard paste");
+      const term = makeTerm({ hasSelection: vi.fn(() => false) });
+      const { container } = render(
+        <TerminalContextMenu position={{ x: 100, y: 100 }} term={term} onClose={onClose} />,
+      );
+      const menu = container.querySelector(".context-menu") as HTMLElement;
+
+      // Focus opens on Paste (Copy items disabled). Activate with Enter.
+      expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Paste" }));
+      fireEvent.keyDown(menu, { key: "Enter" });
+      await waitFor(() => expect(term.paste).toHaveBeenCalledWith("keyboard paste"));
+    });
+
+    it("still closes and refocuses when a keyboard Paste rejects", async () => {
+      vi.mocked(readText).mockRejectedValueOnce(new Error("clipboard denied"));
+      const term = makeTerm({ hasSelection: vi.fn(() => false) });
+      const { container } = render(
+        <TerminalContextMenu position={{ x: 100, y: 100 }} term={term} onClose={onClose} />,
+      );
+      const menu = container.querySelector(".context-menu") as HTMLElement;
+
+      fireEvent.keyDown(menu, { key: "Enter" }); // Paste (focused on open)
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      expect(term.focus).toHaveBeenCalled();
+    });
+
+    it("activates Reset Display via keyboard when provided", () => {
+      const term = makeTerm({ hasSelection: vi.fn(() => false) });
+      const onResetDisplay = vi.fn();
+      const { container } = render(
+        <TerminalContextMenu
+          position={{ x: 100, y: 100 }}
+          term={term}
+          onResetDisplay={onResetDisplay}
+          onClose={onClose}
+        />,
+      );
+      const menu = container.querySelector(".context-menu") as HTMLElement;
+
+      // Reset Display is the last item; End jumps to it.
+      fireEvent.keyDown(menu, { key: "End" });
+      expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Reset Display" }));
+      fireEvent.keyDown(menu, { key: "Enter" });
+      expect(onResetDisplay).toHaveBeenCalledTimes(1);
+      expect(onClose).toHaveBeenCalled();
+    });
+
+    it("never focuses or activates the disabled Copy items via keyboard", () => {
+      // No selection → Copy and Copy Unwrapped are disabled; roving focus
+      // must skip them entirely, so no key path can trigger a clipboard copy.
+      const term = makeTerm({ hasSelection: vi.fn(() => false) });
+      const { container } = render(
+        <TerminalContextMenu position={{ x: 100, y: 100 }} term={term} onClose={onClose} />,
+      );
+      const menu = container.querySelector(".context-menu") as HTMLElement;
+      const copy = screen.getByRole("menuitem", { name: "Copy" });
+      const copyUnwrapped = screen.getByRole("menuitem", { name: "Copy Unwrapped" });
+
+      expect(copy).toBeDisabled();
+      expect(copyUnwrapped).toBeDisabled();
+
+      // Walk the whole ring (Home, then Up which wraps, then several Downs).
+      // The roving target is observed via tabIndex (the focused item gets 0)
+      // — a disabled <button> can't take DOM focus, so tabIndex is what would
+      // expose a roving bug that landed the index on a disabled item.
+      const steps = ["Home", "ArrowUp", "ArrowDown", "ArrowDown", "ArrowDown", "ArrowDown"];
+      for (const key of steps) {
+        fireEvent.keyDown(menu, { key });
+        expect(copy.tabIndex).toBe(-1);
+        expect(copyUnwrapped.tabIndex).toBe(-1);
+      }
+
+      // Belt-and-braces: the Enter guard also blocks activation, so no copy
+      // ever fires even if the roving target were wrong.
+      fireEvent.keyDown(menu, { key: "Enter" });
+      expect(writeText).not.toHaveBeenCalled();
+      expect(term.getSelection).not.toHaveBeenCalled();
+    });
+  });
+
+  it("does not close on a non-navigation key", () => {
     const term = makeTerm();
-    render(
+    const { container } = render(
       <TerminalContextMenu
         position={{ x: 100, y: 100 }}
         term={term}
@@ -420,7 +642,8 @@ describe("TerminalContextMenu", () => {
       />,
     );
 
-    fireEvent.keyDown(document, { key: "a" });
+    const menu = container.querySelector(".context-menu") as HTMLElement;
+    fireEvent.keyDown(menu, { key: "a" });
     expect(onClose).not.toHaveBeenCalled();
   });
 

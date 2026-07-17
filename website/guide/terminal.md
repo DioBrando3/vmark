@@ -16,7 +16,7 @@ The terminal supports up to 5 concurrent sessions, each with its own shell proce
 | Restart shell | Click the restart icon |
 | Swap panel side | Click the swap icon (↕ / ↔) to flip the terminal to the opposite side of its current axis. In **Auto** mode this keeps the smart aspect-based switching (landscape → side, portrait → bottom/top) — it just chooses the other end. |
 
-When you close the last session the panel hides but the session stays alive — reopen with `` Ctrl + ` `` and you are back where you left off. If a shell process exits, press any key to restart it.
+When you close the last session the panel hides but the session stays alive — reopen with `` Ctrl + ` `` and you are back where you left off. When the shell exits cleanly (`exit` or `Ctrl + D`), its tab closes automatically — and the panel hides if it was the last one. If the shell exits with an error, the tab stays open showing the exit code; press any key to restart it.
 
 **Notifications:** when a terminal rings the bell (e.g. Claude Code finishing a turn) while that VMark window isn't focused, VMark posts an OS notification naming the window's document — so you can run Claude Code across several windows and get pinged for whichever needs you, without watching each one. Toggle it with **Settings → Terminal → Notify when unfocused** (on by default; asks for notification permission on first use). The same unfocused-bell signal also flags the window in the [Window Status panel](/guide/workspace-management#window-status-panel), so you can see which window needs you and jump straight to it.
 
@@ -62,6 +62,8 @@ Right-click inside the terminal to access:
 - **Select All** — select the entire terminal buffer
 - **Clear** — clear visible output
 - **Reset Display** — re-paint the terminal and reset its rendering cache. Use this if characters start to overlap, mix cases, or render garbled after a long session — most often seen when running heavily styled CLIs (e.g. Claude Code) for hours.
+
+The menu is fully keyboard-navigable: it opens with the first available action focused, arrow keys move between items (skipping disabled ones), Home/End jump to the first/last, Enter or Space activates, and Escape or Tab closes it.
 
 ## Clickable Links
 

@@ -15,6 +15,7 @@
 import { useTabStore } from "@/stores/tabStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useDocumentStore } from "@/stores/documentStore";
+import { usePopupStore } from "@/stores/popupStore";
 import { getFormatById } from "@/lib/formats/registry";
 import { getActiveTabId } from "@/services/navigation/activeDocument";
 import type { FormatConfig, SplitViewMode } from "@/lib/formats/types";
@@ -62,7 +63,7 @@ export function activeSplitPaneTarget(
   const tabId = getActiveTabId(windowLabel);
   if (!tabId) return null;
   const tab = useTabStore.getState().findTabById(tabId);
-  if (!tab) return null;
+  if (!tab || tab.kind !== "document") return null;
   const config = getFormatById(tab.formatId);
   if (!config) return null;
   if (config.kind !== "split-pane" && config.kind !== "viewer") return null;
@@ -84,6 +85,13 @@ export function applySplitPaneViewShortcut(
 ): boolean {
   const target = activeSplitPaneTarget(windowLabel);
   if (!target) return false;
+  // The editor context menu's snapshot targets the pane that is about to
+  // change view mode — close it so a stale menu can't dispatch later
+  // (keyboard path only; pointer toggles already close it via
+  // click-outside dismissal).
+  if (usePopupStore.getState().editorContextMenu.isOpen) {
+    usePopupStore.getState().editorContextCloseMenu();
+  }
   useTabStore
     .getState()
     .setTabViewMode(target.tabId, toggleSplitViewMode(target.mode, against));

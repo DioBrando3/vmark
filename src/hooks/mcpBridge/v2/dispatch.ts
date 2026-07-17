@@ -35,6 +35,21 @@ import {
   handleWorkflowValidate,
 } from "./workflow";
 import { handleSelectionGet, handleSelectionSet } from "./selection";
+import {
+  handleBrowserRead,
+  handleBrowserAct,
+  handleBrowserOpen,
+  handleBrowserNavigate,
+  handleBrowserWait,
+  handleBrowserScreenshot,
+  handleBrowserWaitFor,
+  handleBrowserQuery,
+  handleBrowserStyle,
+  handleBrowserExecuteJs,
+  handleBrowserSessionSave,
+  handleBrowserSessionLoad,
+  handleBrowserConsole,
+} from "./browser";
 
 /**
  * App version used in the `session.get_state` capabilities payload.
@@ -56,13 +71,14 @@ export const SUPPORTED_TOOL_PREFIXES = [
   "vmark.document.*",
   "vmark.workflow.*",
   "vmark.selection.*",
+  "vmark.browser.*",
 ] as const;
 
 export async function dispatchV2(event: McpRequestEvent): Promise<boolean> {
   const { id, type, args } = event;
   switch (type) {
     case "vmark.session.get_state":
-      await handleSessionGetState(id, APP_VERSION);
+      await handleSessionGetState(id, APP_VERSION, args);
       return true;
 
     case "vmark.workspace.new":
@@ -109,6 +125,46 @@ export async function dispatchV2(event: McpRequestEvent): Promise<boolean> {
       return true;
     case "vmark.selection.set":
       await handleSelectionSet(id, args);
+      return true;
+
+    case "vmark.browser.read":
+      await handleBrowserRead(id, args);
+      return true;
+    case "vmark.browser.act":
+      await handleBrowserAct(id, args);
+      return true;
+    case "vmark.browser.open":
+      await handleBrowserOpen(id, args);
+      return true;
+    case "vmark.browser.navigate":
+      await handleBrowserNavigate(id, args);
+      return true;
+    case "vmark.browser.wait":
+      await handleBrowserWait(id, args);
+      return true;
+    case "vmark.browser.screenshot":
+      await handleBrowserScreenshot(id, args);
+      return true;
+    case "vmark.browser.wait_for":
+      await handleBrowserWaitFor(id, args);
+      return true;
+    case "vmark.browser.query":
+      await handleBrowserQuery(id, args);
+      return true;
+    case "vmark.browser.style":
+      await handleBrowserStyle(id, args);
+      return true;
+    case "vmark.browser.execute_js":
+      await handleBrowserExecuteJs(id, args);
+      return true;
+    case "vmark.browser.session.save":
+      await handleBrowserSessionSave(id, args);
+      return true;
+    case "vmark.browser.session.load":
+      await handleBrowserSessionLoad(id, args);
+      return true;
+    case "vmark.browser.console":
+      await handleBrowserConsole(id, args);
       return true;
 
     default:

@@ -34,6 +34,13 @@ vi.mock("../selection", () => ({
   handleSelectionGet: vi.fn(async () => undefined),
   handleSelectionSet: vi.fn(async () => undefined),
 }));
+vi.mock("../browser", () => ({
+  handleBrowserRead: vi.fn(async () => undefined),
+  handleBrowserAct: vi.fn(async () => undefined),
+  handleBrowserOpen: vi.fn(async () => undefined),
+  handleBrowserNavigate: vi.fn(async () => undefined),
+  handleBrowserWait: vi.fn(async () => undefined),
+}));
 
 import { handleSessionGetState } from "../session";
 import {
@@ -55,6 +62,13 @@ import {
   handleWorkflowValidate,
 } from "../workflow";
 import { handleSelectionGet, handleSelectionSet } from "../selection";
+import {
+  handleBrowserRead,
+  handleBrowserAct,
+  handleBrowserOpen,
+  handleBrowserNavigate,
+  handleBrowserWait,
+} from "../browser";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -74,6 +88,7 @@ const ROUTES: Array<{
   {
     type: "vmark.session.get_state",
     handler: handleSessionGetState as unknown as ReturnType<typeof vi.fn>,
+    args: { clientProtocol: "0.3.0" },
     passesArgsObject: false,
   },
   {
@@ -146,6 +161,19 @@ const ROUTES: Array<{
     handler: handleSelectionSet as unknown as ReturnType<typeof vi.fn>,
     args: { content: "x" },
   },
+  {
+    type: "vmark.browser.read",
+    handler: handleBrowserRead as unknown as ReturnType<typeof vi.fn>,
+    args: {},
+  },
+  {
+    type: "vmark.browser.act",
+    handler: handleBrowserAct as unknown as ReturnType<typeof vi.fn>,
+    args: { operation: "click", role: "button", name: "Go" },
+  },
+  { type: "vmark.browser.open", handler: handleBrowserOpen as unknown as ReturnType<typeof vi.fn>, args: { url: "https://example.com" } },
+  { type: "vmark.browser.navigate", handler: handleBrowserNavigate as unknown as ReturnType<typeof vi.fn>, args: { url: "https://example.com" } },
+  { type: "vmark.browser.wait", handler: handleBrowserWait as unknown as ReturnType<typeof vi.fn>, args: {} },
 ];
 
 describe("dispatchV2 — routing", () => {
@@ -158,10 +186,9 @@ describe("dispatchV2 — routing", () => {
     expect(route.handler).toHaveBeenCalledTimes(1);
 
     if (route.passesArgsObject === false) {
-      // session.get_state takes (id, version-string) — both arguments
-      // are present, second is a non-empty string, but the dispatcher
-      // does not forward `args`.
-      expect(route.handler).toHaveBeenCalledWith(id, expect.any(String));
+      // session.get_state takes (id, version-string, args) — the app version
+      // plus the request args, which carry the client's declared protocol.
+      expect(route.handler).toHaveBeenCalledWith(id, expect.any(String), args);
     } else {
       expect(route.handler).toHaveBeenCalledWith(id, args);
     }
@@ -200,6 +227,11 @@ describe("dispatchV2 — routing", () => {
     const types = ROUTES.map((r) => r.type).sort();
     expect(types).toEqual(
       [
+        "vmark.browser.act",
+        "vmark.browser.navigate",
+        "vmark.browser.open",
+        "vmark.browser.read",
+        "vmark.browser.wait",
         "vmark.document.read",
         "vmark.document.transform",
         "vmark.document.write",

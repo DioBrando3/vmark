@@ -10,10 +10,13 @@ import { Sidebar } from "@/components/Sidebar";
 import { SidebarResizeHandle } from "@/components/Sidebar/SidebarResizeHandle";
 import { WorkspaceRail, WORKSPACE_RAIL_WIDTH } from "@/components/WorkspaceRail";
 import { BottomBar } from "@/components/BottomBar/BottomBar";
-import { TitleBar } from "@/components/TitleBar";
 import { AppShell, EditorArea } from "@/shell";
-import { GeniePicker } from "@/components/GeniePicker/GeniePicker";
+import { appShellClassName } from "@/shell/appShellClassName";
+import { GeniePickerOverlay } from "@/components/GeniePicker/GeniePickerOverlay";
+import { EditorContextMenu } from "@/components/Editor/EditorContextMenu/EditorContextMenu";
 import { ApprovalDialog } from "@/components/WorkflowApproval/ApprovalDialog";
+import { BrowserApprovalDialog } from "@/components/Browser/BrowserApprovalDialog";
+import { AppTitleBar } from "@/components/Browser/AppTitleBar";
 import { QuickOpen } from "@/components/QuickOpen/QuickOpen";
 import { ContentSearch } from "@/components/ContentSearch/ContentSearch";
 import { QuickLookOverlay } from "@/components/QuickLook/QuickLookOverlay";
@@ -27,6 +30,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useTheme } from "@/hooks/useTheme";
 import { useTerminalPosition } from "@/components/Terminal/useTerminalPosition";
 import { useTabModeSync } from "@/hooks/useTabModeSync";
+import { useBrowserWorkspaceActive } from "@/components/Browser/useBrowserWorkspaceState";
 import {
   useWorkspaceLifecycle,
   useEditorLifecycle,
@@ -35,6 +39,7 @@ import {
 } from "@/hooks/lifecycle";
 import { cssVars } from "@/theme";
 import { appError } from "@/utils/debug";
+import { useBrowserOccluder } from "@/hooks/useBrowserOccluder";
 
 const TerminalPanel = lazy(() =>
   import("@/components/Terminal").then((m) => ({ default: m.TerminalPanel }))
@@ -102,6 +107,9 @@ const DROP_LABEL_FONT_SIZE = 14;
 function DropOverlay() {
   const { t } = useTranslation();
   const isDragging = useUIStore((state) => state.isDraggingFiles);
+  // The native browser view paints over all React DOM in its rect, so freeze every
+  // mounted browser tab while this overlay is up (WI-SOC.1).
+  useBrowserOccluder(isDragging, "file-drop");
   if (!isDragging) return null;
 
   return (
@@ -148,6 +156,9 @@ function MainLayout() {
   const sidebarWidth = useUIStore((state) => state.sidebarWidth);
   const findBarOpen = useUIStore((state) => state.search.isOpen);
   const terminalPosition = useUIStore((state) => state.effectiveTerminalPosition);
+  // Primitive boolean selector — the shell re-renders only when this flips, not
+  // on every tab-metadata change (a full-projection read would do the latter).
+  const browserWorkspaceActive = useBrowserWorkspaceActive();
   const workspaceRailMode = useSettingsStore((state) => state.general.workspaceRailMode);
   const showWorkspaceRail = isDocumentWindow && workspaceRailMode;
   const sideWidth = (showWorkspaceRail ? WORKSPACE_RAIL_WIDTH : 0) + (sidebarVisible ? sidebarWidth : 0);
@@ -165,26 +176,20 @@ function MainLayout() {
   // double-mount it, #1081); targets the focused pane via pane-aware hooks.
   useUnifiedMenuCommands();
 
-  const className = [
-    focusModeEnabled && "focus-mode",
-    typewriterModeEnabled && "typewriter-mode",
-    findBarOpen && "find-bar-open",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const className = appShellClassName({ focusMode: focusModeEnabled, typewriterMode: typewriterModeEnabled, findBarOpen, browserWorkspaceActive, workspaceRailVisible: showWorkspaceRail });
 
   return (
     <AppShell
       className={className}
-      chrome={<TitleBar />}
+      // Single source for the rail width: descendants (incl. the browser-active
+      // layout offsets) inherit it from here instead of a hardcoded CSS value.
+      style={{ "--workspace-rail-width": `${WORKSPACE_RAIL_WIDTH}px` } as CSSProperties}
+      chrome={<AppTitleBar />}
       sidebar={
         showWorkspaceRail || sidebarVisible ? (
           <div className="app-sidebar-stack">
             {showWorkspaceRail && (
-              <div
-                className="app-sidebar-stack__rail"
-                style={{ "--workspace-rail-width": `${WORKSPACE_RAIL_WIDTH}px` } as CSSProperties}
-              >
+              <div className="app-sidebar-stack__rail">
                 <WorkspaceRail windowLabel={windowLabel} />
               </div>
             )}
@@ -227,8 +232,13 @@ function MainLayout() {
           <QuickLookOverlay />
           <KnowledgeBaseOverlay />
           <WindowStatusOverlay />
-          <GeniePicker />
+          <GeniePickerOverlay />
+          <EditorContextMenu />
           <ApprovalDialog />
+          {/* The AI-action consent prompt (WI-S0.8). It freezes the browser tab it
+              belongs to, so the page cannot paint over the dialog asking whether it
+              may be acted upon. */}
+          <BrowserApprovalDialog />
           <CommandPalette />
         </>
       }

@@ -5,7 +5,7 @@
  * Tauri menu events to editor operations across both WYSIWYG and Source modes.
  *
  * Key decisions:
- *   - ACTION_IDS uses `as const` array to derive the ActionId union type at compile time
+ *   - _ACTION_IDS uses `as const` array to derive the ActionId union type at compile time
  *   - Each action declares mode capability so the dispatcher can skip unsupported ops
  *
  * @coordinates-with actionRegistry.ts — consumes these types for the runtime mapping tables
@@ -21,7 +21,7 @@
  * - Insert actions: "insert" prefix ("insertTable", "insertImage")
  * - Block toggles: block type name ("blockquote", "codeBlock")
  */
-export const ACTION_IDS = [
+const _ACTION_IDS = [
   // === Edit ===
   "undo",
   "redo",
@@ -89,6 +89,7 @@ export const ACTION_IDS = [
   "insertFootnote",
   "insertMath",
   "insertDiagram",
+  "insertGraphvizDiagram",
   "insertMarkmap",
   "insertInlineMath",
   "insertDetails",
@@ -133,7 +134,7 @@ export const ACTION_IDS = [
   "transformToggleCase",
 ] as const;
 
-export type ActionId = (typeof ACTION_IDS)[number];
+export type ActionId = (typeof _ACTION_IDS)[number];
 
 /**
  * Heading level for setHeading action
@@ -143,14 +144,14 @@ export type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
 /**
  * Parameters for parameterized actions
  */
-export interface ActionParams {
+interface ActionParams {
   setHeading?: { level: HeadingLevel };
 }
 
 /**
  * Mode capability flags
  */
-export interface ActionCapability {
+interface ActionCapability {
   wysiwyg: boolean;
   source: boolean;
 }
@@ -158,7 +159,7 @@ export interface ActionCapability {
 /**
  * Action category for grouping in UI
  */
-export type ActionCategory =
+type ActionCategory =
   | "edit"
   | "formatting"
   | "links"
@@ -192,9 +193,13 @@ export interface ActionDefinition {
 export type MenuEventId = `menu:${string}`;
 
 /**
- * Menu to action mapping entry
+ * Menu to action mapping entry.
+ *
+ * Discriminated on `actionId`: parameterized actions (currently only
+ * "setHeading") REQUIRE their typed params; every other action carries none.
+ * This makes `{ actionId: "bold", params: { level: 3 } }` and
+ * `{ actionId: "setHeading" }` (missing params) compile errors.
  */
-export interface MenuActionMapping {
-  actionId: ActionId;
-  params?: Record<string, unknown>;
-}
+export type MenuActionMapping =
+  | { actionId: "setHeading"; params: { level: HeadingLevel } }
+  | { actionId: Exclude<ActionId, "setHeading">; params?: never };

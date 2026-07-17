@@ -30,11 +30,13 @@ import { manifest as codePaste } from "./codePaste/manifest";
 import { manifest as codePreview } from "./codePreview/manifest";
 import { manifest as compositionGuard } from "./compositionGuard/manifest";
 import { manifest as detailsBlock } from "./detailsBlock/manifest";
+import { manifest as editorContextMenu } from "./editorContextMenu/manifest";
 import { manifest as focusMode } from "./focusMode/manifest";
 import { manifest as footnotePopup } from "./footnotePopup/manifest";
 import { manifest as formatToolbar } from "./formatToolbar/manifest";
 import { manifest as frontmatterPanel } from "./frontmatterPanel/manifest";
 import { manifest as ghaWorkflowPreview } from "./ghaWorkflowPreview/manifest";
+import { manifest as graphviz } from "./graphviz/manifest";
 import { manifest as highlight } from "./highlight/manifest";
 import { manifest as htmlPaste } from "./htmlPaste/manifest";
 import { manifest as imageHandler } from "./imageHandler/manifest";
@@ -95,9 +97,9 @@ import { manifest as workflowPreview } from "./workflowPreview/manifest";
 const ALL = [
   aiSuggestion, alertBlock, autoPair, blockAudio, blockEscape, blockImage,
   blockquoteEscape, blockVideo, cjkLetterSpacing, codeBlockLineNumbers,
-  codePaste, codePreview, compositionGuard, detailsBlock, focusMode,
+  codePaste, codePreview, compositionGuard, detailsBlock, editorContextMenu, focusMode,
   footnotePopup, formatToolbar, frontmatterPanel, ghaWorkflowPreview,
-  highlight, htmlPaste, imageHandler, imagePasteToast, imagePreview,
+  graphviz, highlight, htmlPaste, imageHandler, imagePasteToast, imagePreview,
   imageView, inactiveSelection, inlineCodeBoundary, inlineNodeEditing,
   latex, linkCreatePopup, linkPopup, lint, listBackspace, listClickFix,
   listContinuation, listEscape, markdownArtifacts, markdownCopy,
